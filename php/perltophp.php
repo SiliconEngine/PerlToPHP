@@ -16,5 +16,5 @@
     $s = $cvt->dumpStruct();
     file_put_contents('/tmp/ppi.txt', $s);
     $newDoc = $cvt->convert();
-    print $newDoc;
+    file_put_contents('/tmp/new.php', $newDoc);
 

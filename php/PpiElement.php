@@ -7,6 +7,7 @@ class PpiElement
 {
     public $id;
     public $level;
+    public $root;
     public $parent;
     public $children = [];
     public $next;
@@ -82,23 +83,37 @@ class PpiElement
      * Peek ahead (n) tokens and return them.
      */
     public function peekAhead(
-        $count)
+        $count,
+        $options = null)
     {
+        $skipWs = isset($options['skip_ws']);
+        if ($count == 0) {
+            return [];
+        }
+
         $obj = $this;
         $list = [];
-        while ($count--) {
-            if ($obj !== null) {
-                $obj = $obj->next;
+        for(;;) {
+repeat:
+            $obj = $obj->next;
+            if ($obj === null) {
+                break;
             }
+
+            if ($skipWs && $obj instanceof PpiTokenWhitespace) {
+                goto repeat;
+            }
+
             $list[] = $obj;
-        }
+        } while (--$count);
+
         return $list;
     }
 
     /**
      * Skip whitespace after this object and return object;
      */
-    public function SkipWhitespace()
+    public function skipWhitespace()
     {
         $obj = $this;
         while ($obj !== null && $obj instanceof PpiTokenWhitespace) {
@@ -115,6 +130,19 @@ class PpiElement
         $obj = $this;
         do {
             $obj = $obj->next;
+        } while ($obj !== null && $obj instanceof PpiTokenWhitespace);
+
+        return $obj;
+    }
+
+    /**
+     * Get previous token that isn't whitespace
+     */
+    public function getPrevNonWs()
+    {
+        $obj = $this;
+        do {
+            $obj = $obj->prev;
         } while ($obj !== null && $obj instanceof PpiTokenWhitespace);
 
         return $obj;
@@ -145,11 +173,31 @@ class PpiElement
     }
 
     /**
+     * Check if node is within a subroutine
+     */
+    public function isWithinSub()
+    {
+        $obj = $this;
+        while ($obj !== null) {
+            if ($obj instanceof PpiStatementSub) {
+                return true;
+            }
+            $obj = $obj->parent;
+        }
+        return false;
+    }
+
+    /**
      * Convert underscored name to CamelCase.
      */
     public function cvtCamelCase(
         $name)
     {
+        // Just keep single underscores
+        if ($name == '_') {
+            return $name;
+        }
+
         if (strpos($name, '_') !== false) {
             return str_replace(' ', '', ucwords(str_replace('_', ' ',
                 strtolower($name))));
@@ -159,4 +207,52 @@ class PpiElement
         return $name;
     }
 
+    public function cvtPackageName(
+        $name)
+    {
+        $name = str_replace('::', ' ', $name);
+        return str_replace(' ', '\\', ucwords($name));
+    }
+
+
+    private $reservedWords = [ 'length', 'setpgrp', 'endgrent', 
+        'link', 'setpriority', 'endhostent', 'listen', 'setprotoent', 
+        'endnetent', 'local', 'setpwent', 'endprotoent', 'localtime', 
+        'setservent', 'endpwent', 'log', 'setsockopt', 'endservent', 
+        'lstat', 'shift', 'eof', 'map', 'shmctl', 'eval', 'mkdir', 'shmget', 
+        'exec', 'msgctl', 'shmread', 'exists', 'msgget', 'shmwrite', 
+        'exit', 'msgrcv', 'shutdown', 'fcntl', 'msgsnd', 'sin', 'fileno', 
+        'my', 'sleep', 'flock', 'next', 'socket', 'fork', 'not', 'socketpair', 
+        'format', 'oct', 'sort', 'formline', 'open', 'splice', 'getc', 
+        'opendir', 'split', 'getgrent', 'ord', 'sprintf', 'getgrgid', 
+        'our', 'sqrt', 'getgrnam', 'pack', 'srand', 'gethostbyaddr', 
+        'pipe', 'stat', 'gethostbyname', 'pop', 'state', 'gethostent', 
+        'pos', 'study', 'getlogin', 'print', 'substr', 'getnetbyaddr', 
+        'printf', 'symlink', 'abs', 'getnetbyname', 'prototype', 'syscall', 
+        'accept', 'getnetent', 'push', 'sysopen', 'alarm', 'getpeername', 
+        'quotemeta', 'sysread', 'atan2', 'getpgrp', 'rand', 'sysseek', 
+        'AUTOLOAD', 'getppid', 'read', 'system', 'BEGIN', 'getpriority', 
+        'readdir', 'syswrite', 'bind', 'getprotobyname', 'readline', 
+        'tell', 'binmode', 'getprotobynumber', 'readlink', 'telldir', 
+        'bless', 'getprotoent', 'readpipe', 'tie', 'break', 'getpwent', 
+        'recv', 'tied', 'caller', 'getpwnam', 'redo', 'time', 'chdir', 
+        'getpwuid', 'ref', 'times', 'CHECK', 'getservbyname', 'rename', 
+        'truncate', 'chmod', 'getservbyport', 'require', 'uc', 'chomp', 
+        'getservent', 'reset', 'ucfirst', 'chop', 'getsockname', 'return', 
+        'umask', 'chown', 'getsockopt', 'reverse', 'undef', 'chr', 'glob', 
+        'rewinddir', 'UNITCHECK', 'chroot', 'gmtime', 'rindex', 'unlink', 
+        'close', 'goto', 'rmdir', 'unpack', 'closedir', 'grep', 'say', 
+        'unshift', 'connect', 'hex', 'scalar', 'untie', 'cos', 'index', 
+        'seek', 'use', 'crypt', 'INIT', 'seekdir', 'utime', 'dbmclose', 
+        'int', 'select', 'values', 'dbmopen', 'ioctl', 'semctl', 'vec', 
+        'defined', 'join', 'semget', 'wait', 'delete', 'keys', 'semop', 
+        'waitpid', 'DESTROY', 'kill', 'send', 'wantarray', 'die', 'last', 
+        'setgrent', 'warn', 'dump', 'lc', 'sethostent', 'write', 'each',
+        'lcfirst', 'setnetent' ];
+
+    public function isReservedWord(
+        $word)
+    {
+        return in_array($word, $this->reservedWords);
+    }
 }

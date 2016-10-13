@@ -32,6 +32,11 @@ class Converter
                 $obj = new $className;
                 $this->flatList[] = $obj;
 
+                if ($this->root === null) {
+                    $this->root = $obj;
+                }
+
+                $obj->root = $this->root;
                 $obj->id = $n;
                 $obj->level = $level;
 
@@ -109,8 +114,6 @@ class Converter
         }
         pclose($pipe);
         print "$n lines read\n";
-
-        $this->root = $this->flatList[0];
     }
 
     public function dumpStruct(
@@ -160,7 +163,7 @@ class Converter
         }
 
         // Recursively generate code
-        return $this->root->getRecursiveContent();
+        return "<?php\n" . $this->root->getRecursiveContent();
     }
 
 
