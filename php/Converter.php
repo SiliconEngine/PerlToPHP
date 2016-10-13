@@ -136,9 +136,16 @@ class Converter
         $obj,
         $level = 0)
     {
+        $content = $obj->content;
+        if ($obj->startContent !== '') {
+            $content = "[ $obj->startContent ] $content";
+        }
+        if ($obj->endContent !== '') {
+            $content = "$content [ $obj->endContent ]";
+        }
+
         return sprintf('%-40s   %s',
-            str_repeat(' ', $level*2) . get_class($obj),
-            $obj->content);
+            str_repeat(' ', $level*2) . get_class($obj), $content);
     }
 
     /**
@@ -147,8 +154,13 @@ class Converter
      */
     public function convert()
     {
+        // Step 1: Call all converters
+        foreach ($this->flatList as $obj) {
+            $obj->genCode();
+        }
+
         // Recursively generate code
-        return $this->root->genCode();
+        return $this->root->getRecursiveContent();
     }
 
 

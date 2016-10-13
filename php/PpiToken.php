@@ -61,112 +61,118 @@ class PpiTokenWord extends PpiToken
 {
     function genCode()
     {
-        $word = $this->content;
-        $parent = $this->parent;
-        switch($word) {
-        case 'sub':
-            // Need to look at context
-
-            if ($parent instanceof PpiStatementVariable) {
-                // Anonymous function
-
-                $this->content = 'function ()';
-            } elseif ($parent instanceof PpiStatementSub) {
-                // Function context
-
-                // Get the name of the function
-                $tokens = $this->peekAhead(4);
-                $name = lcfirst($this->cvtCamelCase($tokens[1]->content));
-                $tokens[0]->cancel();
-                $tokens[1]->cancel();
-
-                if ($tokens[3] instanceof PpiStructureBlock) {
-                    // Try to figure out an argument list
-                    // First check for the easy case of "my ($var, $var2) = @_;"
-
-                    $obj = $tokens[3];
-                    $obj = $obj->next;
-                    $firstObj = $obj;
-                    $obj = $obj->next->SkipWhitespace();
-
-                    $argList = [];
-                    $found = false;
-                    $saveObj = $obj;
-                    if ($obj instanceof PpiStatementVariable) {
-                        $max = 200;
-                        while (($obj = $obj->next) !== null && --$max > 0) {
-                            if ($obj->content == '@_') {
-                                $found = true;
-                                // Cancel semicolon and newline
-                                $obj = $obj->findNewline();
-
-                                // Skip blank lines
-                                while ($obj->next->isNewline()) {
-                                    $obj = $obj->next;
-                                }
-                                break;
-                            }
-
-                            if ($obj instanceof PpiTokenSymbol) {
-                                $argList[] = $var = $obj->genCode();
-                                continue;
-                            }
-
-                            if ($obj->content == ';') {
-                                break;
-                            }
-                        }
-                    }
-
-                    if (! $found) {
-                        $argList = [];
-
-                        // Not found, try the more complicate version. Look
-                        // for lines like: "my $var = shift;"
-                        $obj = $saveObj;
-                        while ($obj instanceof PpiStatementVariable) {
-                            $obj1 = $obj->getNextNonWs();
-                            $obj2 = $obj1->getNextNonWs();
-                            $obj3 = $obj2->getNextNonWs();
-                            $obj4 = $obj3->getNextNonWs();
-                            $obj5 = $obj4->getNextNonWs();
-                            $obj = $obj5->getNextNonWs();
-                            if ($obj1->content != 'my' ||
-                                    ! ($obj2 instanceof PpiTokenSymbol) ||
-                                    $obj3->content != '=' ||
-                                    $obj4->content != 'shift' ||
-                                    $obj5->content != ';') {
-
-                                break;
-                            }
-
-                            $argList[] = $obj2->genCode();
-                        }
-
-                        if (count($argList)) {
-                            $obj = $obj5;
-                            while (! $obj->isNewline()) {
-                                $obj = $obj->next;
-                            }
-                        }
-                    }
-                }
-
-                // Cancel out the lines with the argument list
-                if (count($argList)) {
-                    $firstObj->cancelUntil($obj);
-                }
-
-                $this->content = "function $name(" .
-                    implode(', ', $argList) . ")";
-
-            } else {
-                throw new \Exception("Bad context " . get_class($parent) .
-                    ", Could not convert $word\n");
+        if (! $this->converted) {
+            $word = $this->content;
+            switch($word) {
+            case 'sub':     $this->tokenWordSub();          break;
             }
-            break;
         }
 
         return parent::genCode();
+    }
+
+    private function tokenWordSub()
+    {
+        $parent = $this->parent;
+        // Need to look at context
+
+        if ($parent instanceof PpiStatementVariable) {
+            // Anonymous function
+
+            $this->content = 'function ()';
+        } elseif ($parent instanceof PpiStatementSub) {
+            // Function context
+
+            // Get the name of the function
+            $tokens = $this->peekAhead(4);
+            $name = lcfirst($this->cvtCamelCase($tokens[1]->content));
+            $tokens[0]->cancel();
+            $tokens[1]->cancel();
+
+            if ($tokens[3] instanceof PpiStructureBlock) {
+                // Try to figure out an argument list
+                // First check for the easy case of "my ($var, $var2) = @_;"
+
+                $obj = $tokens[3];
+                $obj = $obj->next;
+                $firstObj = $obj;
+                $obj = $obj->next->SkipWhitespace();
+
+                $argList = [];
+                $found = false;
+                $saveObj = $obj;
+                if ($obj instanceof PpiStatementVariable) {
+                    $max = 200;
+                    while (($obj = $obj->next) !== null && --$max > 0) {
+                        if ($obj->content == '@_') {
+                            $found = true;
+                            // Cancel semicolon and newline
+                            $obj = $obj->findNewline();
+
+                            // Skip blank lines
+                            while ($obj->next->isNewline()) {
+                                $obj = $obj->next;
+                            }
+                            break;
+                        }
+
+                        if ($obj instanceof PpiTokenSymbol) {
+                            $argList[] = $var = $obj->genCode();
+                            continue;
+                        }
+
+                        if ($obj->content == ';') {
+                            break;
+                        }
+                    }
+                }
+
+                if (! $found) {
+                    $argList = [];
+
+                    // Not found, try the more complicate version. Look
+                    // for lines like: "my $var = shift;"
+                    $obj = $saveObj;
+                    while ($obj instanceof PpiStatementVariable) {
+                        $obj1 = $obj->getNextNonWs();
+                        $obj2 = $obj1->getNextNonWs();
+                        $obj3 = $obj2->getNextNonWs();
+                        $obj4 = $obj3->getNextNonWs();
+                        $obj5 = $obj4->getNextNonWs();
+                        $obj = $obj5->getNextNonWs();
+                        if ($obj1->content != 'my' ||
+                                ! ($obj2 instanceof PpiTokenSymbol) ||
+                                $obj3->content != '=' ||
+                                $obj4->content != 'shift' ||
+                                $obj5->content != ';') {
+
+                            break;
+                        }
+
+                        $argList[] = $obj2->genCode();
+                    }
+
+                    if (count($argList)) {
+                        $obj = $obj5;
+                        while (! $obj->isNewline()) {
+                            $obj = $obj->next;
+                        }
+                    }
+                }
+            }
+
+            // Cancel out the lines with the argument list
+            if (count($argList)) {
+                $firstObj->cancelUntil($obj);
+            }
+
+            $this->content = "function $name(" .
+                implode(', ', $argList) . ")";
+        } else {
+            throw new \Exception("Bad context " . get_class($parent) .
+                ", Could not convert $word\n");
+        }
+
+        return;
     }
 }

@@ -16,13 +16,29 @@ class PpiElement
     public $startContent = '';
     public $endContent = '';
 
+    /**
+     * Converter has been run
+     */
+    public $converted = false;
+
+    /**
+     * Whether this node's content should be canceled.
+     */
     public $cancel = false;
 
     /**
-     * Default code generator: just use the content string and recursively
-     * call the children's converters.
+     * Default code generator: just mark as converted, and return content.
      */
     public function genCode()
+    {
+        $this->converted = true;
+        return $this->content;
+    }
+
+    /**
+     * Get content for node and all children.
+     */
+    public function getRecursiveContent()
     {
         if ($this->cancel) {
             return '';
@@ -31,12 +47,13 @@ class PpiElement
         $s = $this->startContent . $this->content;
         foreach ($this->children as $child) {
             if (! $child->cancel) {
-                $s .= $child->genCode();
+                $s .= $child->getRecursiveContent();
             }
         }
 
         return $s . $this->endContent;
     }
+
 
     /**
      * Cancel this element from generating data
