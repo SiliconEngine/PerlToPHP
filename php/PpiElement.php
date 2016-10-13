@@ -12,6 +12,8 @@ class PpiElement
     public $children = [];
     public $next;
     public $prev;
+    public $nextSibling;
+    public $prevSibling;
 
     public $content = '';
     public $startContent = '';
@@ -147,6 +149,33 @@ repeat:
 
         return $obj;
     }
+
+    /**
+     * Get next sibling that isn't whitespace
+     */
+    public function getNextSiblingNonWs()
+    {
+        $obj = $this;
+        do {
+            $obj = $obj->nextSibling;
+        } while ($obj !== null && $obj instanceof PpiTokenWhitespace);
+
+        return $obj;
+    }
+
+    /**
+     * Get previous token that isn't whitespace
+     */
+    public function getPrevSiblingNonWs()
+    {
+        $obj = $this;
+        do {
+            $obj = $obj->prevSibling;
+        } while ($obj !== null && $obj instanceof PpiTokenWhitespace);
+
+        return $obj;
+    }
+
 
     /**
      * Check if object is a new line

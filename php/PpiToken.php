@@ -237,6 +237,12 @@ class PpiTokenWord extends PpiToken
                 case 'require':     $this->content = 'use';         break;
                 }
             }
+
+            if ($this->parent instanceof PpiStatementCompound) {
+                switch($word) {
+                case 'elsif':     $this->content = 'elseif';         break;
+                }
+            }
         }
 
         return parent::genCode();

@@ -19,6 +19,14 @@ class PpiStructureList extends PpiStructure
     {
         if (! $this->converted) {
             $prev = $this->getPrevNonWs();
+            $nextSib = $this->getNextSiblingNonWs();
+            if ($nextSib !== null && $nextSib->content == '=') {
+                // list l-value
+
+                $this->startContent = 'list(';
+                return parent::genCode();
+            }
+
             $type = get_class($prev);
             if (! in_array($type, [
                 'PpiTokenWord',

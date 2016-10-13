@@ -98,7 +98,12 @@ class Converter
                 if ($parentObj === null) {
                     $parentObj = $obj;
                 } else {
+                    $prior = end($parentObj->children);
                     $parentObj->children[] = $obj;
+                    if (! empty($prior)) {
+                        $obj->prevSibling = $prior;
+                        $prior->nextSibling = $obj;
+                    }
                 }
 
                 if ($lastObj !== null) {
