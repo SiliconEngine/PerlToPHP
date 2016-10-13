@@ -277,7 +277,14 @@ repeat:
         'defined', 'join', 'semget', 'wait', 'delete', 'keys', 'semop', 
         'waitpid', 'DESTROY', 'kill', 'send', 'wantarray', 'die', 'last', 
         'setgrent', 'warn', 'dump', 'lc', 'sethostent', 'write', 'each',
-        'lcfirst', 'setnetent' ];
+        'lcfirst', 'setnetent',
+        '__DATA__', 'else', 'lock', 'qw', '__END__', 'elsif', 'lt', 'qx',
+        '__FILE__', 'eq', 'm', 's', '__LINE__', 'exp', 'ne', 'sub',
+        '__PACKAGE__', 'for', 'no', 'tr', 'and', 'foreach', 'or', 'unless',
+        'cmp', 'ge', 'package', 'until', 'continue', 'gt', 'q', 'while',
+        'CORE', 'if', 'qq', 'xor', 'do', 'le', 'qr', 'y'
+    ];
+
 
     public function isReservedWord(
         $word)

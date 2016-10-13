@@ -63,9 +63,56 @@ class PpiTokenOperator extends PpiToken
                     $this->content = '';
                 }
                 break;
+            case '=~':
+                return $this->cvtRegEx();
             }
         }
 
+        return parent::genCode();
+    }
+
+    function cvtRegEx()
+    {
+        $left = $this->getPrevNonWs();
+        $right = $this->getNextNonWs();
+
+        $var = $left->content;
+        $regex = $right->content;
+
+        // Need to escape single quotes in regex expression
+        $regex = str_replace("'", "\\'", $regex);
+
+        if (substr($regex, 0, 1) == 's') {
+            // Substitute, need to split into regex and substitute
+
+            $regex = substr($regex, 1);         // Strip the 's'
+            $regex = preg_replace('/\\w*$/', '', $regex);
+            $delim = substr($regex, 0, 1);
+            if ($delim == '/') {
+                $delim = '\\' . $delim;
+            }
+
+            // Split into two strings. Have to check for escapes. Note the
+            // look-behind assertion for a backslash.
+            if (preg_match("/($delim.*(?<!\\\\)$delim)(.*)$delim/", $regex,
+                    $matches)) {
+
+                $this->content = "$var = preg_replace('{$matches[1]}', " .
+                    "'{$matches[2]}', $var)";
+            } else {
+                // Can't convert
+
+                return parent::genCode();
+            }
+
+        } else {
+            // Match
+
+            $this->content = "preg_match('$regex', $var)";
+        }
+
+        $left->cancelUntil($this);
+        $this->next->cancelUntil($right->next);
         return parent::genCode();
     }
 }
@@ -201,47 +248,52 @@ class PpiTokenWord extends PpiToken
                 return $this->tokenWordPackageName();
             }
 
-            if ($this->parent instanceof PpiStatementExpression &&
-                    $this->parent->parent instanceof PpiStructureSubscript) {
-                // Might be a bareword hash index
+            if ($this->parent instanceof PpiStatementExpression) {
+                if ($this->parent->parent instanceof PpiStructureSubscript) {
+                    // Might be a bareword hash index
 
-                return $this->quoteBareWord();
+                    return $this->quoteBareWord();
+                }
+
+                $next = $this->getNextNonWs();
+                if ($next->content == '=>') {
+                    return $this->quoteBareWord();
+                }
             }
 
-            if ($this->parent instanceof PpiStatementVariable) {
+            if (! $this->isReservedWord($word)) {
+                // Looks like some sort of function name or variable
+
+                $this->content = lcfirst($this->cvtCamelCase($word));
+                return parent::genCode();
+            }
+
+            if ($this->parent instanceof PpiStatement) {
                 switch($word) {
                 case 'my':          $this->tokenWordMy();           break;
-                default:
-                    // Possibly a function name
-
-                    if (! $this->isReservedWord($word)) {
-                        $this->content = lcfirst($this->cvtCamelCase($word));
-                    }
-                }
-            }
-
-            if ($this->parent instanceof PpiStatementSub) {
-                switch($word) {
+                case 'split':       $this->tokenWordSplit();        break;
+                case 'shift':
+                    $this->convertWordWithArg('array_shift');
+                    break;
+                case 'pop':
+                    $this->convertWordWithArg('array_pop');
+                    break;
+                case 'unshift':
+                    $this->content = 'array_unshift';
+                    break;
+                case 'shift':
+                    $this->content = 'array_shift';
+                    break;
+                case 'length':
+                    $this->content = 'strlen';
+                    break;
                 case 'sub':         $this->tokenWordSub();          break;
-                }
-            }
-
-            if ($this->parent instanceof PpiStatementPackage) {
-                switch($word) {
                 case 'package':     $this->tokenWordPackage();      break;
-                }
-            }
-
-            if ($this->parent instanceof PpiStatementInclude) {
-                switch($word) {
                 case 'require':     $this->content = 'use';         break;
+                case 'elsif':       $this->content = 'elseif';      break;
                 }
-            }
-
-            if ($this->parent instanceof PpiStatementCompound) {
-                switch($word) {
-                case 'elsif':     $this->content = 'elseif';         break;
-                }
+            } else {
+                print "Not statement: {$this->content}\n";
             }
         }
 
@@ -450,6 +502,40 @@ class PpiTokenWord extends PpiToken
         }
         return;
     }
+
+    private function tokenWordSplit()
+    {
+        $this->content = 'preg_match';
+
+        // Test if we can use faster explode
+        $peek = $this->peekAhead(3, [ 'skip_ws' => true]);
+        if ($peek[2] instanceof PpiTokenQuote) {
+            $pattern = $peek[2]->content;
+            if (! preg_match('/[\\().*]/', $pattern)) {
+                // Doesn't look like a pattern, use explode
+
+                $this->content = 'explode';
+            }
+        }
+
+
+    }
+
+    /**
+     * Check for things like "= pop @x"
+     */
+    private function convertWordWithArg($newWord)
+    {
+        $this->content = $newWord;
+        $peek = $this->peekAhead(2);
+        if ($peek[0] instanceof PpiTokenWhitespace &&
+                $peek[1] instanceof PpiTokenSymbol) {
+            $peek[0]->cancel();
+            $peek[1]->startContent = '(';
+            $peek[1]->endContent = ')';
+        }
+    }
+
 
 
 }
