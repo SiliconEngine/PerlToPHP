@@ -28,7 +28,6 @@ class PpiTokenRegexpMatch extends PpiTokenRegexp { }
 class PpiTokenRegexpSubstitute extends PpiTokenRegexp { }
 class PpiTokenRegexpTransliterate extends PpiTokenRegexp { }
 class PpiTokenHereDoc extends PpiToken { }
-class PpiTokenCast extends PpiToken { }
 class PpiTokenStructure extends PpiToken { }
 class PpiTokenLabel extends PpiToken { }
 class PpiTokenSeparator extends PpiToken { }
@@ -38,6 +37,21 @@ class PpiTokenPrototype extends PpiToken { }
 class PpiTokenAttribute extends PpiToken { }
 class PpiTokenUnknown extends PpiToken { }
 
+class PpiTokenCast extends PpiToken
+{
+    function genCode()
+    {
+        if (! $this->converted) {
+            // Can't really convert casts like "@$abc" unless you know
+            // the context, because it might need to be "count($abc)".
+            // Better to check these manually.
+            // Might do some unambiguous cases here.
+
+            $this->content = "/*check*/{$this->content}";
+        }
+        return parent::genCode();
+    }
+}
 
 class PpiTokenOperator extends PpiToken
 {
@@ -60,18 +74,22 @@ class PpiTokenOperator extends PpiToken
             case '->':
                 $next = $this->getNextNonWs();
                 if (! ($next instanceof PpiTokenWord)) {
-                    $this->content = '';
+                    $this->cancel();
                 }
                 break;
             case '=~':
                 return $this->cvtRegEx();
+            case '!~':
+                return $this->cvtRegEx(true);
+            case 'x':
+                return $this->cvtStrRepeat();
             }
         }
 
         return parent::genCode();
     }
 
-    function cvtRegEx()
+    function cvtRegEx($neg = false)
     {
         $left = $this->getPrevNonWs();
         $right = $this->getNextNonWs();
@@ -109,12 +127,29 @@ class PpiTokenOperator extends PpiToken
             // Match
 
             $this->content = "preg_match('$regex', $var)";
+            if ($neg) {
+                $this->content = "! ({$this->content})";
+            }
         }
 
         $left->cancelUntil($this);
         $this->next->cancelUntil($right->next);
         return parent::genCode();
     }
+
+    private function cvtStrRepeat()
+    {
+        $left = $this->getPrevNonWs();
+        $right = $this->getNextNonWs();
+        $str = $left->content;
+        $count = $right->content;
+
+        $this->content = "str_repeat($str, $count)";
+        $left->cancel();
+        $right->cancel();
+        return parent::genCode();
+    }
+
 }
 
 
@@ -125,7 +160,7 @@ class PpiTokenComment extends PpiToken
     function genCode()
     {
         if (! $this->converted) {
-            $this->content = preg_replace('/^#/', '//', $this->content);
+            $this->content = preg_replace('/^(\s*)#/', '\1//', $this->content);
         }
 
         return parent::genCode();
@@ -281,8 +316,8 @@ class PpiTokenWord extends PpiToken
                 case 'unshift':
                     $this->content = 'array_unshift';
                     break;
-                case 'shift':
-                    $this->content = 'array_shift';
+                case 'push':
+                    $this->content = 'array_push';
                     break;
                 case 'length':
                     $this->content = 'strlen';
@@ -291,6 +326,12 @@ class PpiTokenWord extends PpiToken
                 case 'package':     $this->tokenWordPackage();      break;
                 case 'require':     $this->content = 'use';         break;
                 case 'elsif':       $this->content = 'elseif';      break;
+                case 'if':
+                    $this->tokenWordConditionals(false, 'if');
+                    break;
+                case 'unless':
+                    $this->tokenWordConditionals(true, 'if');
+                    break;
                 }
             } else {
                 print "Not statement: {$this->content}\n";
@@ -534,6 +575,98 @@ class PpiTokenWord extends PpiToken
             $peek[1]->startContent = '(';
             $peek[1]->endContent = ')';
         }
+    }
+
+    /**
+     * Process conditional statements, such as 'if', 'until', etc
+     * Particularly deals with things like "$a = 10 if $b == 20";
+     */
+    private function tokenWordConditionals(
+        $neg,                       // Reverse condition, as with until
+        $keyword)                   // Keyword to translate to
+    {
+        $needSwitch = false;
+        $obj = $this;
+        while (($obj = $obj->prev) !== null) {
+            if ($obj->isWs()) {
+                continue;
+            }
+
+            if ($obj instanceof PpiStructureBlock) {
+                break;
+            }
+
+            if ($obj->content == ';') {
+                break;
+            }
+
+            if (! empty($obj->content)) {
+                // Some sort of code before
+
+                $needSwitch = true;
+                break;
+            }
+
+            $obj = $obj->prev;
+        }
+
+        if (! $needSwitch) {
+            // No code before the 'if' statement.
+
+            return;
+        }
+
+        // parent should be a statement object
+        if (! ($this->parent instanceof PpiStatement)) {
+            return;
+        }
+
+        // Go through the parent's children and generate the text for
+        // the left half and the right half.
+        foreach ($this->parent->children as $obj) {
+            if ($obj !== $this) {
+                $obj->genCode();
+            }
+        }
+
+        $leftText = '';
+        $rightText = '';
+        $foundObj = false;
+        $parent = $this->parent;
+        foreach ($parent->children as $obj) {
+            if ($obj === $this) {
+                $foundObj = true;
+                continue;
+            }
+
+            if (! $foundObj) {
+                $leftText .= $obj->getRecursiveContent();
+            } else {
+                $rightText .= $obj->getRecursiveContent();
+            }
+
+            $obj->cancel();
+        }
+
+        $rightText = trim(preg_replace('/;\s*$/', '', $rightText));
+        if (substr($rightText, 0, 1) != '(') {
+            $rightText = "($rightText)";
+        }
+        if ($neg) {
+            $rightText = "(! $rightText)";
+        }
+        $leftText = trim($leftText);
+
+        $rightText = str_replace("\n", ' ', $rightText);
+        $leftText = str_replace("\n", ' ', $leftText);
+        $rightText = preg_replace('/\s+/', ' ', $rightText);
+        $leftText = preg_replace('/\s+/', ' ', $leftText);
+
+        $indent = str_repeat(' ', $parent->getIndent());
+        $this->content = "$keyword $rightText {\n" .
+            "$indent    $leftText;\n" .
+            "$indent}";
+        return;
     }
 
 

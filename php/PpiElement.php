@@ -113,6 +113,46 @@ repeat:
     }
 
     /**
+     * Peek behind (n) tokens and return them.
+     */
+    public function peekBehind(
+        $count,
+        $options = null)
+    {
+        $skipWs = isset($options['skip_ws']);
+        if ($count == 0) {
+            return [];
+        }
+
+        $obj = $this;
+        $list = [];
+        for(;;) {
+repeat:
+            $obj = $obj->prev;
+            if ($obj === null) {
+                break;
+            }
+
+            if ($skipWs && $obj instanceof PpiTokenWhitespace) {
+                goto repeat;
+            }
+
+            $list[] = $obj;
+        } while (--$count);
+
+        return $list;
+    }
+
+    /**
+     * Quick test for white space or comment
+     */
+    public function isWs()
+    {
+        return ($this instanceof PpiTokenWhitespace) ||
+            ($this instanceof PpiTokenComment);
+    }
+
+    /**
      * Skip whitespace after this object and return object;
      */
     public function skipWhitespace()
@@ -183,7 +223,7 @@ repeat:
     public function isNewline()
     {
         return ($this instanceof PpiTokenWhitespace &&
-            strpos($this->content, "\n") !== null);
+            strpos($this->content, "\n") !== false);
     }
 
 
@@ -201,6 +241,34 @@ repeat:
         return $obj;
     }
 
+
+    /**
+     * Extract entire line of elements.
+     */
+    public function isolateLineElements()
+    {
+        $leftList = [];
+        $rightList = [];
+
+        $obj = $this;
+        do {
+            $obj = $obj->prev;
+            $leftList[] = $obj;
+//print "left! type = " . get_class($obj) . ", content = {$obj->content}\n";
+        } while (! $obj->isNewline());
+
+        $obj = $this;
+        do {
+            $obj = $obj->next;
+            $rightList[] = $obj;
+        } while (! $obj->isNewline());
+
+        $ret = new \stdClass;
+        $ret->leftList = array_reverse($leftList);
+        $ret->rightList = $rightList;
+        return $ret;
+    }
+
     /**
      * Check if node is within a subroutine
      */
@@ -214,6 +282,53 @@ repeat:
             $obj = $obj->parent;
         }
         return false;
+    }
+
+    /**
+     * Figure out the indent for the line of the current token.
+     */
+    public function getIndent()
+    {
+        // Scan backward for newline
+        $obj = $this;
+        while ($obj->prev !== null && ! $obj->isNewline()) {
+            $obj = $obj->prev;
+        }
+
+        // Scan forward and accumulate spaces
+        $spaces = '';
+        while ($obj->isWs()) {
+            $s = $obj->content;
+
+            // If has newline, chop everything before
+            $p = strpos($s, "\n");
+            if ($p !== false) {
+                $spaces = '';
+                $s = substr($s, $p+1);
+            }
+
+            $spaces .= $s;
+            $obj = $obj->next;
+        }
+
+        return strlen($this->tabExpand($spaces));
+    }
+
+    /**
+     * Expand tab characters in string.
+     */
+    function tabExpand($s)
+    {
+        $tabStop = 8;
+        while (strpos($s, "\t") !== false) {
+            $s = preg_replace_callback('/(.*?)(\t+)/',
+                function ($matches) use ($tabStop) {
+                    return $matches[1] . str_repeat(' ', strlen($matches[2]) * 
+                    $tabStop - strlen($matches[1]) % $tabStop);
+                }, $s);
+        }
+
+        return $s;
     }
 
     /**

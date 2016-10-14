@@ -27,6 +27,14 @@ class PpiStructureList extends PpiStructure
                 return parent::genCode();
             }
 
+            $peek = $this->peekBehind(2, [ 'skip_ws' => true ]);
+            if ($peek[0]->content == '->' &&
+                    $peek[1] instanceof PpiTokenSymbol) {
+                // Looks like anonymous function call: "$var->( )"
+
+                return parent::genCode();
+            }
+
             $type = get_class($prev);
             if (! in_array($type, [
                 'PpiTokenWord',
