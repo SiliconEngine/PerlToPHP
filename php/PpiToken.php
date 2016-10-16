@@ -23,7 +23,6 @@ class PpiTokenQuoteLikeBacktick extends PpiTokenQuoteLike { }
 class PpiTokenQuoteLikeCommand extends PpiTokenQuoteLike { }
 class PpiTokenQuoteLikeRegexp extends PpiTokenQuoteLike { }
 class PpiTokenQuoteLikeReadline extends PpiTokenQuoteLike { }
-class PpiTokenRegexp extends PpiToken { }
 class PpiTokenRegexpMatch extends PpiTokenRegexp { }
 class PpiTokenRegexpSubstitute extends PpiTokenRegexp { }
 class PpiTokenRegexpTransliterate extends PpiTokenRegexp { }
@@ -37,6 +36,18 @@ class PpiTokenPrototype extends PpiToken { }
 class PpiTokenAttribute extends PpiToken { }
 class PpiTokenUnknown extends PpiToken { }
 
+
+class PpiTokenRegexp extends PpiToken
+{
+    function genCode()
+    {
+        if (! $this->converted) {
+            $this->content = "'{$this->content}'";
+        }
+        return parent::genCode();
+    }
+}
+
 class PpiTokenCast extends PpiToken
 {
     function genCode()
@@ -45,9 +56,15 @@ class PpiTokenCast extends PpiToken
             // Can't really convert casts like "@$abc" unless you know
             // the context, because it might need to be "count($abc)".
             // Better to check these manually.
-            // Might do some unambiguous cases here.
+            // Might do some unambiguous cases here later.
 
-            $this->content = "/*check*/{$this->content}";
+            $next = $this->next;
+            if ($this->content == '@' && $next instanceof PpiStructureBlock) {
+                $next->startContent = "/* {$next->startContent} */";
+                $next->endContent = "/* {$next->endContent} */";
+            }
+
+            $this->content = "/*check:{$this->content}*/";
         }
         return parent::genCode();
     }
@@ -160,7 +177,60 @@ class PpiTokenComment extends PpiToken
     function genCode()
     {
         if (! $this->converted) {
-            $this->content = preg_replace('/^(\s*)#/', '\1//', $this->content);
+            $comment = preg_replace('/^(\s*)#/', '\1//', $this->content);
+
+            // If block comment, convert style to PHPDOC
+            if (preg_match('/^(\s*)\/\/####/', $comment, $matches)) {
+                $this->content = "{$matches[1]}/**\n";
+
+                $obj = $this->next;
+                $first = true;
+                $open = true;
+                while ($obj !== null && $obj instanceof PpiTokenComment) {
+                    $s = $obj->content;
+
+                    /* #      # */
+                    if (preg_match('/^(\s*)#\s*#$/', $s, $matches)) {
+                        // Remove blanks if directly following top
+                        if (! $first) {
+                            $obj->content = "{$matches[1]} *\n";
+                            $obj->converted = true;
+                        } else {
+                            $obj->cancel();
+                        }
+
+                    /* //   text   # */
+                    } elseif (preg_match('/^(\s*)#(\s+.*)#\s*$/', $s, $matches)) {
+                        $first = false;
+                        $obj->content = "{$matches[1]} *{$matches[2]}\n";
+                        $obj->converted = true;
+
+                        // Remove "SubName - ", which was old comment convention
+                        $obj->content = preg_replace('/^(\s+\*\s+)\w+ - /',
+                            '\1', $obj->content);
+
+                    /* //##### */
+                    } elseif (preg_match('/^(\s*)#+\s*$/', $s, $matches)) {
+                        $first = false;
+                        $obj->content = "{$matches[1]} */\n";
+                        $obj->converted = true;
+
+                        // If previous was blank, delete it
+                        if (preg_match('/^\s*\*\s*$/', $obj->prev->content)) {
+                            $obj->prev->cancel();
+                        }
+                        $open = false;
+                        break;
+                    }
+
+                    $obj = $obj->next;
+                }
+
+                // If was unclosed, go ahead and close it.
+                if ($open) {
+                    $obj->content .= "\n */\n";
+                }
+            }
         }
 
         return parent::genCode();
@@ -313,6 +383,15 @@ class PpiTokenWord extends PpiToken
                 case 'pop':
                     $this->convertWordWithArg('array_pop');
                     break;
+                case 'uc':
+                    $this->convertWordWithArg('strtoupper');
+                    break;
+                case 'lc':
+                    $this->convertWordWithArg('strtolower');
+                    break;
+                case 'delete':
+                    $this->convertWordWithArg('unset');
+                    break;
                 case 'unshift':
                     $this->content = 'array_unshift';
                     break;
@@ -322,15 +401,22 @@ class PpiTokenWord extends PpiToken
                 case 'length':
                     $this->content = 'strlen';
                     break;
+                case 'defined':
+                    $this->content = '/*check*/isset';
+                    break;
                 case 'sub':         $this->tokenWordSub();          break;
                 case 'package':     $this->tokenWordPackage();      break;
                 case 'require':     $this->content = 'use';         break;
                 case 'elsif':       $this->content = 'elseif';      break;
+                case 'foreach':     $this->tokenWordForeach();      break;
                 case 'if':
                     $this->tokenWordConditionals(false, 'if');
                     break;
                 case 'unless':
                     $this->tokenWordConditionals(true, 'if');
+                    break;
+                case 'STDERR':
+                    $this->killTokenAndWs();
                     break;
                 }
             } else {
@@ -371,6 +457,7 @@ class PpiTokenWord extends PpiToken
             $name = lcfirst($this->cvtCamelCase($tokens[1]->content));
             $tokens[0]->cancel();
             $tokens[1]->cancel();
+            $argList = [];
 
             if ($tokens[3] instanceof PpiStructureBlock) {
                 // Try to figure out an argument list
@@ -524,13 +611,56 @@ class PpiTokenWord extends PpiToken
             return;
         }
 
+        // Scan ahead and see if we have an initializer somewhere
+        $scan = $this;
+        while ($scan->content != ';' && $scan->content != '=') {
+            $scan = $scan->next;
+        }
+        $hasInit = $scan->content == '=';
+
+        // See if we have a list of variables in parenthesis.
+        $obj = $this->getNextNonWs();
+        if ($obj instanceof PpiStructureList) {
+            if ($hasInit) {
+                // If an initializer, this is handled elsewhere.
+
+                $this->killTokenAndWs();
+                return;
+            }
+
+            // No initializer, must be a declaration. Take it apart into
+            // separate assignments.
+            $obj = $obj->next;
+            if ($obj instanceof PpiStatementExpression) {
+                $varList = [];
+                foreach ($obj->children as $child) {
+                    if ($child instanceof PpiTokenSymbol) {
+                        $var = $child->genCode();
+                        $varList[] = $var;
+                    }
+                    $child->cancel();
+                }
+
+                $indent = str_repeat(' ', $this->getIndent());
+                $s = '';
+                foreach ($varList as $var) {
+                    if ($s !== '') {
+                        $s .= "\n$indent";
+                    }
+                    $s .= "$var = null;";
+                }
+                $this->content = $s;
+                $this->next->cancelUntil($scan->next);
+            }
+            return;
+        }
+
         // Otherwise, kill the 'my'
         $this->killTokenAndWs();
 
         // Scan ahead and see if there's an initializer. If so, just kill
         // the 'my' and whitespace. Otherwise add an initializer to the
         // variable.
-
         $peek = $this->peekAhead(3, [ 'skip_ws' => true]);
         if ($peek[1]->content == '=') {
             // Have initializer, we're done.
@@ -539,14 +669,14 @@ class PpiTokenWord extends PpiToken
         }
 
         if ($peek[2]->content == ';') {
-            $peek[2]->content = " = '';";
+            $peek[2]->content = " = null;";
         }
         return;
     }
 
     private function tokenWordSplit()
     {
-        $this->content = 'preg_match';
+        $this->content = 'preg_split';
 
         // Test if we can use faster explode
         $peek = $this->peekAhead(3, [ 'skip_ws' => true]);
@@ -571,9 +701,16 @@ class PpiTokenWord extends PpiToken
         $peek = $this->peekAhead(2);
         if ($peek[0] instanceof PpiTokenWhitespace &&
                 $peek[1] instanceof PpiTokenSymbol) {
+
+            // Enclose everything up to the semicolon
+            $obj = $peek[1];
+            do {
+                $obj = $obj->next;
+            } while ($obj->content != ';');
+
             $peek[0]->cancel();
             $peek[1]->startContent = '(';
-            $peek[1]->endContent = ')';
+            $obj->startContent = ')';
         }
     }
 
@@ -669,6 +806,64 @@ class PpiTokenWord extends PpiToken
         return;
     }
 
+    /**
+     * Process foreach statement, which requires syntax mod.
+     */
+    private function tokenWordForeach()
+    {
+        $needSwitch = false;
+        $obj = $this;
 
+        // First find the variable
+        $var = null;
+        while (($obj = $obj->next) !== null) {
+            if ($obj instanceof PpiTokenSymbol) {
+                $var = $obj->genCode();
+                break;
+            }
+
+            if ($obj instanceof PpiStructureList ||
+                    $obj instanceof PpiStructureBlock || $obj->content == ';') {
+                break;              // Something went wrong
+            }
+        }
+
+        if ($var === null) {
+            return;
+        }
+
+        // Look for the expression in parenthesis
+        $exprObj = null;
+        while (($obj = $obj->next) !== null) {
+            if ($obj instanceof PpiStructureList) {
+                $exprObj = $obj;
+                break;
+            }
+
+            if ($obj instanceof PpiStructureBlock || $obj->content == ';') {
+                break;
+            }
+        }
+
+        if ($exprObj === null) {
+            return;
+        }
+
+        // Accumulate text of children, which is the expression
+        foreach ($exprObj->children as $obj) {
+            $obj->genCode();
+        }
+
+        $exprText = '';
+        foreach ($exprObj->children as $obj) {
+            $exprText .= $obj->getRecursiveContent();
+        }
+        $exprText = trim($exprText);
+
+        $this->next->cancelUntil(end($exprObj->children));
+
+        $this->content = "foreach ($exprText as $var)";
+        return;
+    }
 
 }

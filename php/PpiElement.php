@@ -47,6 +47,10 @@ class PpiElement
             return '';
         }
 
+        if (! $this->converted) {
+            $this->genCode();
+        }
+
         $s = $this->startContent . $this->content;
         foreach ($this->children as $child) {
             if (! $child->cancel) {
@@ -64,6 +68,12 @@ class PpiElement
     public function cancel()
     {
         $this->cancel = true;
+        $this->converted = true;
+    }
+
+    public function uncancel()
+    {
+        $this->cancel = false;
     }
 
     /**
@@ -397,7 +407,7 @@ repeat:
         '__FILE__', 'eq', 'm', 's', '__LINE__', 'exp', 'ne', 'sub',
         '__PACKAGE__', 'for', 'no', 'tr', 'and', 'foreach', 'or', 'unless',
         'cmp', 'ge', 'package', 'until', 'continue', 'gt', 'q', 'while',
-        'CORE', 'if', 'qq', 'xor', 'do', 'le', 'qr', 'y'
+        'CORE', 'if', 'qq', 'xor', 'do', 'le', 'qr', 'y', 'STDERR'
     ];
 
 
