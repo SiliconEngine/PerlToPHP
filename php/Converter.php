@@ -18,6 +18,7 @@ class Converter
         $parentStack = [];
         while (($line = fgets($pipe)) !== false) {
             ++$n;
+//print "Line $n: $line\n";
 
             if (preg_match('/^(\s*)(\S+)\s*(.*)/', rtrim($line), $matches)) {
                 $spaces = $matches[1];
@@ -162,12 +163,14 @@ class Converter
      */
     public function convert()
     {
+        print "Phase 1: Calling all converters\n";
         // Step 1: Call all converters
         foreach ($this->flatList as $obj) {
             $obj->genCode();
         }
 
         // Recursively generate code
+        print "Phase 2: Writing source\n";
         return "<?php\n" . $this->root->getRecursiveContent();
     }
 

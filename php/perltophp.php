@@ -13,6 +13,9 @@
  * -) Switch around foreach
  * -) ' ' x (1 + 1)
  * -) Mark 'chop' statement with 'check'
+ * -) $_[0] !~ /pattern/ -- Need to scan backward for ws or last sibling
+ * -) Convert expressions in strings
+ * -) keys
  */
 
 
@@ -23,6 +26,8 @@
     require_once('PpiStructure.php');
     require_once('PpiToken.php');
     require_once('Converter.php');
+
+    ini_set('memory_limit', '1G');
 
     $options = getopt('i:o:');
     $fn = $options['i'];

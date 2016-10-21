@@ -88,6 +88,15 @@ class PpiTokenOperator extends PpiToken
             case 'gt':
                 $this->content = '>';
                 break;
+            case 'not':
+                $this->content = '!';
+                break;
+            case 'and':
+                $this->content = '&&';
+                break;
+            case 'or':
+                $this->content = '||';
+                break;
             case '->':
                 $next = $this->getNextNonWs();
                 if (! ($next instanceof PpiTokenWord)) {
