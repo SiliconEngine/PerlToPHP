@@ -10,7 +10,7 @@
  * -) Maybe implment generate test if math expression.
  * -) Remove casts and just flag. That's the usual case.
  * -) Line 2516: Bad conversion of parenthesis.
- * -) Switch around foreach
+ * *) Switch around foreach
  * -) ' ' x (1 + 1)
  * -) Mark 'chop' statement with 'check'
  * -) $_[0] !~ /pattern/ -- Need to scan backward for ws or last sibling
@@ -35,15 +35,14 @@
 
     $cvt = new Converter;
     $cvt->readFile($fn);
-    $s = $cvt->dumpStruct();
-    $newDoc = $cvt->convert();
+
+    $ppiFn = ! empty($outFn) ? "$outFn.ppi" : "$fn.ppi";
+    $newDoc = $cvt->convert($ppiFn);
 
     if (! empty($outFn)) {
         file_put_contents($outFn, $newDoc);
-        file_put_contents("$outFn.ppi", $s);
     } else {
         print $newDoc;
-        file_put_contents("$fn.ppi", $s);
     }
 
 

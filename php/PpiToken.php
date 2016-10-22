@@ -1,9 +1,7 @@
 <?php
 
-class PpiToken extends PpiElement { }
 class PpiTokenWhitespace extends PpiToken { }
 class PpiTokenPod extends PpiToken { }
-class PpiTokenNumber extends PpiToken { }
 class PpiTokenNumberBinary extends PpiTokenNumber { }
 class PpiTokenNumberOctal extends PpiTokenNumber { }
 class PpiTokenNumberHex extends PpiTokenNumber { }
@@ -13,7 +11,6 @@ class PpiTokenNumberVersion extends PpiTokenNumber { }
 class PpiTokenDashedWord extends PpiToken { }
 class PpiTokenMagic extends PpiTokenSymbol { }
 class PpiTokenArrayIndex extends PpiToken { }
-class PpiTokenQuote extends PpiToken { }
 class PpiTokenQuoteSingle extends PpiTokenQuote { }
 class PpiTokenQuoteDouble extends PpiTokenQuote { }
 class PpiTokenQuoteLiteral extends PpiTokenQuote { }
@@ -36,6 +33,31 @@ class PpiTokenPrototype extends PpiToken { }
 class PpiTokenAttribute extends PpiToken { }
 class PpiTokenUnknown extends PpiToken { }
 
+class PpiToken extends PpiElement
+{
+    public function anaContext()
+    {
+        // Default to parent context
+        $this->setContext($this->parent->context);
+    }
+}
+
+class PpiTokenQuote extends PpiToken
+{
+    public function anaContext()
+    {
+        $this->setContext('string');
+    }
+}
+
+class PpiTokenNumber extends PpiToken
+{
+    public function anaContext()
+    {
+        $this->setContext('scalar');
+    }
+}
+
 
 class PpiTokenRegexp extends PpiToken
 {
@@ -50,6 +72,22 @@ class PpiTokenRegexp extends PpiToken
 
 class PpiTokenCast extends PpiToken
 {
+    public function anaContext()
+    {
+        switch ($this->content) {
+        case '@':
+            $this->setContextChain('array');
+            break;
+        case '%':
+            $this->setContextChain('hash');
+            break;
+        default:
+            print "unknown cast: {$this->content}\n";
+            exit(0);
+        }
+    }
+
+
     function genCode()
     {
         if (! $this->converted) {
@@ -57,6 +95,7 @@ class PpiTokenCast extends PpiToken
             // the context, because it might need to be "count($abc)".
             // Better to check these manually.
             // Might do some unambiguous cases here later.
+            // Now have context, so we try and do the right thing.
 
             $next = $this->next;
             if ($this->content == '@' && $next instanceof PpiStructureBlock) {
@@ -72,6 +111,21 @@ class PpiTokenCast extends PpiToken
 
 class PpiTokenOperator extends PpiToken
 {
+    public function anaContext()
+    {
+        switch ($this->content) {
+        case ',':
+            $this->setContextChain('array');
+            break;
+        case '.':
+            $this->setContextChain('string');
+            break;
+        default:
+            // Default to scalar
+            $this->setContextChain('scalar');
+        }
+    }
+
     function genCode()
     {
         if (! $this->converted) {
@@ -183,6 +237,11 @@ class PpiTokenOperator extends PpiToken
 
 class PpiTokenComment extends PpiToken
 {
+    public function anaContext()
+    {
+        $this->setContext('neutral');
+    }
+
     function genCode()
     {
         if (! $this->converted) {
@@ -253,6 +312,11 @@ class PpiTokenComment extends PpiToken
  */
 class PpiTokenQuoteLikeWords extends PpiTokenQuoteLike
 {
+    public function anaContext()
+    {
+        $this->setContextChain('string');
+    }
+
     function genCode()
     {
         if (! $this->converted) {
@@ -273,6 +337,25 @@ class PpiTokenQuoteLikeWords extends PpiTokenQuoteLike
  */
 class PpiTokenSymbol extends PpiToken
 {
+    public function anaContext()
+    {
+        switch (substr($this->content, 0, 1)) {
+        default:
+        case '$':
+            // Scalar variable, may or may not be scalar expression
+            $this->setContextChain('scalar');
+            break;
+
+        case '@':
+            $this->setContextChain('array');
+            break;
+
+        case '%':
+            $this->setContextChain('hash');
+            break;
+        }
+    }
+
     function genCode()
     {
         if (! $this->converted) {
@@ -353,6 +436,37 @@ class PpiTokenSymbol extends PpiToken
  */
 class PpiTokenWord extends PpiToken
 {
+    public function anaContext()
+    {
+        switch ($this->content) {
+        case 'shift':
+        case 'unshift':
+        case 'pop':
+        case 'push':
+        case 'split':
+        case 'delete':
+            $this->setContextChain('array');
+            break;
+
+        case 'join':
+        case 'uc':
+        case 'lc':
+        case 'ucwords':
+            $this->setContextChain('string');
+            break;
+
+        case 'defined':
+        case 'length':
+            $this->setContextChain('scalar');
+            break;
+
+        default:
+            // Some sort of function, most likely
+            $this->setContext('scalar');
+            break;
+        }
+    }
+
     function genCode()
     {
         if (! $this->converted) {

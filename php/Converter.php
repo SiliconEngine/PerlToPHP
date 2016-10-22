@@ -129,7 +129,7 @@ class Converter
         if ($obj === null) {
             $obj = $this->root;
         }
-        $s = $obj->id . " " . $this->fmtObj($obj, $level) . "\n";
+        $s = $obj->id . " " . $obj->fmtObj($level) . "\n";
         foreach ($obj->children as $sub) {
             if ($sub->parent !== $obj) {
                 print "bad parent!\n";
@@ -141,36 +141,31 @@ class Converter
         return $s;
     }
 
-    protected function fmtObj(
-        $obj,
-        $level = 0)
-    {
-        $content = $obj->content;
-        if ($obj->startContent !== '') {
-            $content = "[ $obj->startContent ] $content";
-        }
-        if ($obj->endContent !== '') {
-            $content = "$content [ $obj->endContent ]";
-        }
-
-        return sprintf('%-40s   %s',
-            str_repeat(' ', $level*2) . get_class($obj), $content);
-    }
-
     /**
      * Start the conversion process
      * @return string  Converted code.
      */
-    public function convert()
+    public function convert(
+        $ppiFn = null)
     {
-        print "Phase 1: Calling all converters\n";
+        print "Phase 1: Analyze lexical structure\n";
+        $this->root->analyzeTreeContext();
+//print "dumping\n";
+//        print $this->dumpStruct();
+//exit(0);
+
+        if (! empty($ppiFn)) {
+            file_put_contents($ppiFn, $this->dumpStruct());
+        }
+
+        print "Phase 2: Calling all converters\n";
         // Step 1: Call all converters
         foreach ($this->flatList as $obj) {
             $obj->genCode();
         }
 
         // Recursively generate code
-        print "Phase 2: Writing source\n";
+        print "Phase 3: Writing source\n";
         return "<?php\n" . $this->root->getRecursiveContent();
     }
 

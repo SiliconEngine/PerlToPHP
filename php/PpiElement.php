@@ -20,6 +20,11 @@ class PpiElement
     public $endContent = '';
 
     /**
+     * What context the node is in: neutral, array, hash, scalar, string
+     */
+    public $context = null;
+
+    /**
      * Converter has been run
      */
     public $converted = false;
@@ -37,6 +42,61 @@ class PpiElement
         $this->converted = true;
         return $this->content;
     }
+
+    /**
+     * Analyze lexical tree and figure out context for each node
+     */
+    public function analyzeTreeContext()
+    {
+        // Try and get the context if we can already determine it
+        if ($this->context === null) {
+            $this->anaContext();
+        }
+
+        foreach ($this->children as $child) {
+            if (! $child->cancel) {
+                $child->analyzeTreecontext();
+            }
+        }
+
+        // Try again to get the context if the children gave us a clue
+        if ($this->context === null) {
+            $this->anaContext();
+        }
+//        if ($this->context === null) {
+//            print "No context for node #{$this->id}\n";
+//        }
+    }
+
+    public function setContext(
+        $context)
+    {
+        if ($context !== null && $this->context === null) {
+            $this->context = $context;
+// debug
+//            $this->context = $context . '/' . $this->id;
+        }
+    }
+
+    public function anaContext()
+    {
+        return;
+    }
+
+    /**
+     * Set context for node and all unset parent nodes
+     */
+    public function setContextChain(
+        $context)
+    {
+        $node = $this;
+        while ($node !== null && $node->context === null) {
+            $node->context = $context;
+            $node = $node->parent;
+        }
+        return;
+    }
+
 
     /**
      * Get content for node and all children.
@@ -416,4 +476,20 @@ repeat:
     {
         return in_array($word, $this->reservedWords);
     }
+
+    public function fmtObj(
+        $level = 0)
+    {
+        $content = $this->content;
+        if ($this->startContent !== '') {
+            $content = "[ $this->startContent ] $content";
+        }
+        if ($this->endContent !== '') {
+            $content = "$content [ $this->endContent ]";
+        }
+
+        return sprintf('%-12s %-40s   %s', $this->context ?: 'null',
+            str_repeat(' ', $level*2) . get_class($this), $content);
+    }
+
 }
