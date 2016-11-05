@@ -115,7 +115,25 @@ class PpiTokenOperator extends PpiToken
     {
         switch ($this->content) {
         case ',':
-            $this->setContextChain('array');
+            // Special logic, might be an array list or a scalar expression
+            // separator.
+            // See: PpiStructureList for notes.
+
+            if ($this->parent instanceof PpiStructureList ||
+                        ($this->parent instanceof PpiStatementExpression &&
+                        $this->parent->parent instanceof PpiStructureList)) {
+                // Parent is PpiStructureList.
+                // Note we force the parent to an array, even if it is
+                // currently a scalar. Sometimes there's a PpiStatementExpr
+                // in-between for some reason.
+                $this->setContext('array');
+                $this->parent->context = 'array';
+                if ($this->parent->parent instanceof PpiStructureList) {
+                    $this->parent->parent->context = 'array';
+                }
+            } else {
+                $this->setContext('scalar');
+            }
             break;
         case '.':
             $this->setContextChain('string');
