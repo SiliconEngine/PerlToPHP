@@ -10,6 +10,7 @@ class Converter
     {
         $pipe = popen("perl -e 'use PPI;' -e 'use PpiDumper;' -e 'PpiDumper->new(PPI::Document->new(\"$fn\"))->print;'", 'r');
         $n = 0;
+        $lineNum = 1;
 
         $this->flatList = [];
         $lastLevel = -1;
@@ -40,6 +41,11 @@ class Converter
                 $obj->root = $this->root;
                 $obj->id = $n;
                 $obj->level = $level;
+                $obj->lineNum = $lineNum;
+
+                if (strpos($content, '\n') !== false) {
+                    ++$lineNum;
+                }
 
                 if ($obj instanceof PpiStructure) {
                     // Special content is start/end characters. Format is:
@@ -54,7 +60,7 @@ class Converter
                     $obj->endContent = substr($content, -1, 1);
 
                 } elseif ($obj instanceof PpiTokenWhitespace) {
-                    // Whitepsace token, translate escaped characters and
+                    // Whitespace token, translate escaped characters and
                     // remove outer single quotes
 
                     $obj->content = str_replace('\t', "\t",

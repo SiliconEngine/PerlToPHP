@@ -48,9 +48,6 @@ class PpiStructureList extends PpiStructure
         // Works: @a = (1, 2, (3 + 4))
         // Doesn't Work: @a = (1 + 2, 3)
         //
-        // Just return
-        //return
-
         // 2) The other way to do it is to use the context of the parent.
         // Not sure if this has issues yet.
         // Works: @a = (1 + 2, 3)
@@ -68,17 +65,13 @@ class PpiStructureList extends PpiStructure
         //      b) If we get a comma and the list is a scalar, we convert it
         //          it to an array (see comma logic)
         //      c) We can possibly go from this to using array_merge
-        // Works: @a = (1 + 2, 3)
-        // Works: @a = (1, 2, (3 + 4))
-        // Shaky: $a = [ (1, 2, (3 + 4)) ] -> [ [1, 2, (3 + 4)] ]
-        //          ^^ should be array_merge (TRUE)
-        // Shaky: $a = (1, 2, 3)
-        // Shaky: $a = [1, 2, (3 + 4) ]
-        //      STOP: Brackets become PpiStructureConstructor, need to become
-        //          array context. Just look for PpiStucture?
+        //      PROBLEM: Brackets become PpiStructureConstructor, need to
+        //          become array context. Just look for PpiStucture?
         //          Has a generic PpiStatement in-between.
-        //      STOP: Thinking I may not need the comma forcing an array.
+        //      PROBLEM: Thinking I may not need the comma forcing an array.
         //
+        // *** None of the above worked well
+        // New method:
         //
         // Types of brackets:
         //      $a = [ ]
@@ -92,22 +85,60 @@ class PpiStructureList extends PpiStructure
         //      $scalar = [ (1, 2, 3) ]
         //          1. Interior is array context because of brackets.
         //      $scalar = ( (1, 2, 3) )
+        //          ...
+        //      function(1, 2, 3)
+        //          Array context, keep as parenthesis
         //
         // Rules:
         //      1) Brackets are:
         //          a) Always array context that generate a scalar reference.
         //      2) Parenthesis are:
-        //          a) Scalar if outside scalar context
-        //          b) Array if outside array context
+        //          a) Scalar if left is scalar context
+        //          b) Array if left is array context
+        //      3) Elements within list are scalar
+        //      4) Scan backward by sibling rather than up to parent for
+        //          context.
+        //
+        // TESTS:
+        //    @a = (1 + 2, 3)
+        //    @a = (1, 2, (3 + 4))
+        //    $a = [ (1, 2, (3 + 4)) ] -> array_merge( [1, 2, (3 + 4)] )
+        //    $a = (1, 2, 3)
+        //    $a = [1, 2, (3 + 4) ]
+        //    $a = [@a, @b] -> $a = array_merge($a, $b)
+        //    ($a, $b, $c) = (1, 2, 3) -> list($a, $b, $c) = [1, 2, 3]
+        //    my ($a, $b, $c) = (1, 2, 3) -> list($a, $b, $c) = [1, 2, 3]
 
+        $node = $this;
+        $context = null;
+        for(;;) {
+            if ($node->prevSibling === null) {
+                $node = $node->parent;
+            } else {
+                $node = $node->prevSibling;
+            }
 
-        if ($this->parent instanceof PpiStructureList ||
-                    ($this->parent instanceof PpiStatementExpression &&
-                    $this->parent->parent instanceof PpiStructureList)) {
-            $this->setContext('scalar');
-        } else {
-            $this->setContext($this->parent->context);
+            if ($node === null || $node->isNewline()) {
+                // Hit front of line means it might be a list assignment
+                // ($a, $b) = ...
+
+                $context = 'array';
+                break;
+            }
+
+            // Skip these until we get something else
+            if ($node instanceof PpiStatement ||
+                        $node instanceof PpiTokenWhitespace) {
+                continue;
+            }
+
+            if ($node->context != 'neutral') {
+                $context = $node->context;
+                break;
+            }
         }
+
+        $this->setContext($context);
         return;
     }
 
@@ -136,15 +167,6 @@ class PpiStructureList extends PpiStructure
                 $this->startContent = '[';
                 $this->endContent = ']';
             }
-
-// old method, not very sophisticated and didn't work well
-//            $type = get_class($prev);
-//            if (! in_array($type, [
-//                'PpiTokenWord',
-//                'PpiTokenSymbol' ])) {
-//                $this->startContent = '[';
-//                $this->endContent = ']';
-//            }
         }
 
         return parent::genCode();
@@ -153,11 +175,37 @@ class PpiStructureList extends PpiStructure
 
 class PpiStructureConstructor extends PpiStructure
 {
+    public function anaContext()
+    {
+        $this->setContextChain('array');
+    }
+
     public function genCode()
     {
         if (! $this->converted) {
-            $this->startContent = '[';
-            $this->endContent = ']';
+            $useMerge = false;
+            if ($this->startContent == '[') {
+                // If first element is an array, then use array_merge
+                for ($node = $this->next; $node != null; $node = $node->next) {
+                    if (! ($node instanceof PpiStatement || 
+                            $node instanceof PpiTokenWhitespace)) {
+
+                        if ($node->context == 'array') {
+                            $useMerge = true;
+                        }
+                        break;
+                    }
+                }
+            }
+
+            if ($useMerge) {
+                $this->startContent = '/*check*/array_merge(';
+                $this->endContent = ')';
+            } else {
+                // Might be brackets or braces, make them always brackets
+                $this->startContent = '[';
+                $this->endContent = ']';
+            }
         }
 
         return parent::genCode();

@@ -37,8 +37,15 @@ class PpiToken extends PpiElement
 {
     public function anaContext()
     {
-        // Default to parent context
-        $this->setContext($this->parent->context);
+//        // Default to parent context
+//        $this->setContext($this->parent->context);
+
+        // Default to prior token's context, unless newline
+        if ($this->prev->isNewline()) {
+            $this->setContext('scalar');
+        } else {
+            $this->setContext($this->getPrevSiblingNonWs()->context);
+        }
     }
 }
 
@@ -81,8 +88,11 @@ class PpiTokenCast extends PpiToken
         case '%':
             $this->setContextChain('hash');
             break;
+        case '\\':
+            $this->setContextChain('neutral');
+            break;
         default:
-            print "unknown cast: {$this->content}\n";
+            print "unknown cast: {$this->content}, line {$this->lineNum}\n";
             exit(0);
         }
     }
@@ -118,26 +128,19 @@ class PpiTokenOperator extends PpiToken
             // Special logic, might be an array list or a scalar expression
             // separator.
             // See: PpiStructureList for notes.
-
-            if ($this->parent instanceof PpiStructureList ||
-                        ($this->parent instanceof PpiStatementExpression &&
-                        $this->parent->parent instanceof PpiStructureList)) {
-                // Parent is PpiStructureList.
-                // Note we force the parent to an array, even if it is
-                // currently a scalar. Sometimes there's a PpiStatementExpr
-                // in-between for some reason.
-                $this->setContext('array');
-                $this->parent->context = 'array';
-                if ($this->parent->parent instanceof PpiStructureList) {
-                    $this->parent->parent->context = 'array';
-                }
-            } else {
-                $this->setContext('scalar');
-            }
+            //
+            // Always scalar, because it's marking off scalars even in lists
+            $this->setContext('scalar');
             break;
         case '.':
             $this->setContextChain('string');
             break;
+
+        case '=':
+            // lvalue generally determines context
+            $this->setContext($this->getPrevSiblingNonWs()->context);
+            break;
+
         default:
             // Default to scalar
             $this->setContextChain('scalar');
@@ -476,6 +479,16 @@ class PpiTokenWord extends PpiToken
         case 'defined':
         case 'length':
             $this->setContextChain('scalar');
+            break;
+
+        case 'my':
+            // If next token is parenthesis, then use array context
+            $node = $this->getNextNonWs();
+            if ($node->startContent == '(') {
+                $this->setContext('array');
+            } else {
+                $this->setContext('scalar');
+            }
             break;
 
         default:

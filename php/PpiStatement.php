@@ -1,12 +1,11 @@
 <?php
 class PpiStatement extends PpiNode
 {
-// alternate method, but having child set parent worked better.
-//    public function anaContext()
-//    {
-//        // Use context of parent
-//        $this->setContext($this->parent->context);
-//    }
+    public function anaContext()
+    {
+        // Use context of parent
+        $this->setContext($this->parent->context);
+    }
 }
 
 

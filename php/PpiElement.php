@@ -6,6 +6,7 @@
 class PpiElement
 {
     public $id;
+    public $lineNum;
     public $level;
     public $root;
     public $parent;
@@ -55,7 +56,7 @@ class PpiElement
 
         foreach ($this->children as $child) {
             if (! $child->cancel) {
-                $child->analyzeTreecontext();
+                $child->analyzeTreeContext();
             }
         }
 
@@ -63,9 +64,6 @@ class PpiElement
         if ($this->context === null) {
             $this->anaContext();
         }
-//        if ($this->context === null) {
-//            print "No context for node #{$this->id}\n";
-//        }
     }
 
     public function setContext(
@@ -267,25 +265,33 @@ repeat:
     {
         $obj = $this;
         do {
-            $obj = $obj->nextSibling;
+            if ($obj->nextSibling === null) {
+                $obj = $obj->parent;
+            } else {
+                $obj = $obj->nextSibling;
+            }
         } while ($obj !== null && $obj instanceof PpiTokenWhitespace);
 
         return $obj;
     }
 
     /**
-     * Get previous token that isn't whitespace
+     * Get previous token that isn't whitespace. If hits front, goes
+     * up to parent to continue;
      */
     public function getPrevSiblingNonWs()
     {
         $obj = $this;
         do {
-            $obj = $obj->prevSibling;
+            if ($obj->prevSibling === null) {
+                $obj = $obj->parent;
+            } else {
+                $obj = $obj->prevSibling;
+            }
         } while ($obj !== null && $obj instanceof PpiTokenWhitespace);
 
         return $obj;
     }
-
 
     /**
      * Check if object is a new line
