@@ -1,0 +1,2 @@
+#!/bin/sh
+phpunit --colors --bootstrap ./bootstrap.php .

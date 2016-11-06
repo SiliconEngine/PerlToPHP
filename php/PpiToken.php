@@ -897,8 +897,6 @@ class PpiTokenWord extends PpiToken
                 $needSwitch = true;
                 break;
             }
-
-            $obj = $obj->prev;
         }
 
         if (! $needSwitch) {

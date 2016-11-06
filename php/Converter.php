@@ -1,9 +1,23 @@
 <?php
 
+require_once('PpiElement.php');
+require_once('PpiNode.php');
+require_once('PpiDocument.php');
+require_once('PpiStatement.php');
+require_once('PpiStructure.php');
+require_once('PpiToken.php');
+
 class Converter
 {
     protected $root;
     protected $flatList;
+    protected $quietOpt = false;
+
+    function setQuiet(
+        $opt)
+    {
+        $this->quietOpt = $opt;
+    }
 
     function readFile(
         $fn)
@@ -125,7 +139,9 @@ class Converter
             }
         }
         pclose($pipe);
-        print "$n lines read\n";
+        if (! $this->quietOpt) {
+            print "$n lines read\n";
+        }
     }
 
     public function dumpStruct(
@@ -154,7 +170,9 @@ class Converter
     public function convert(
         $ppiFn = null)
     {
-        print "Phase 1: Analyze lexical structure\n";
+        if (! $this->quietOpt) {
+            print "Phase 1: Analyze lexical structure\n";
+        }
         $this->root->analyzeTreeContext();
 //print "dumping\n";
 //        print $this->dumpStruct();
@@ -164,14 +182,18 @@ class Converter
             file_put_contents($ppiFn, $this->dumpStruct());
         }
 
-        print "Phase 2: Calling all converters\n";
+        if (! $this->quietOpt) {
+            print "Phase 2: Calling all converters\n";
+        }
         // Step 1: Call all converters
         foreach ($this->flatList as $obj) {
             $obj->genCode();
         }
 
         // Recursively generate code
-        print "Phase 3: Writing source\n";
+        if (! $this->quietOpt) {
+            print "Phase 3: Writing source\n";
+        }
         return "<?php\n" . $this->root->getRecursiveContent();
     }
 

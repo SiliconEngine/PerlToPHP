@@ -19,21 +19,17 @@
  */
 
 
-    require_once('PpiElement.php');
-    require_once('PpiNode.php');
-    require_once('PpiDocument.php');
-    require_once('PpiStatement.php');
-    require_once('PpiStructure.php');
-    require_once('PpiToken.php');
     require_once('Converter.php');
 
     ini_set('memory_limit', '1G');
 
-    $options = getopt('i:o:');
+    $options = getopt('i:o:q');
     $fn = $options['i'];
     $outFn = get_in($options, 'o');
+    $quietOpt = isset($options['q']);
 
     $cvt = new Converter;
+    $cvt->setQuiet($quietOpt);
     $cvt->readFile($fn);
 
     $ppiFn = ! empty($outFn) ? "$outFn.ppi" : "$fn.ppi";
