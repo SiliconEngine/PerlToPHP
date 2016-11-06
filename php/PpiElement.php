@@ -216,8 +216,10 @@ repeat:
      */
     public function isWs()
     {
-        return ($this instanceof PpiTokenWhitespace) ||
-            ($this instanceof PpiTokenComment);
+        // Note we treat root node as ws, makes things easier
+        return ($this instanceof PpiTokenWhitespace
+            || $this instanceof PpiTokenComment
+            || $this instanceof PpiDocument);
     }
 
     /**
