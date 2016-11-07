@@ -43,10 +43,10 @@ class AbstractConverterTester extends \PHPUnit_Framework_TestCase
      * Assert equals, but add '<?php' to front.
      */
     protected function assertCodeEquals(
-        $result,
-        $check)
+        $expected,
+        $actual)
     {
-        $this->assertEquals($result, "<?php\n" . $check);
+        $this->assertEquals("<?php\n" . $expected, $actual);
     }
 
 }

@@ -25,14 +25,14 @@ class ConverterTest extends \AbstractConverterTester
 
         // Do first conversion test
         $cvtPhp = $this->convertPerl($perl);
-        $this->assertCodeEquals($cvtPhp, $php);
+        $this->assertCodeEquals($php, $cvtPhp);
 
         // Also auto-test enclosed in function, if not already
         if (strpos($php, 'function') === false) {
             $perl = "sub func {\n" . $perl . "\n}";
             $php = "function func() {\n" . $php . "\n}";
             $cvtPhp = $this->convertPerl($perl);
-            $this->assertCodeEquals($cvtPhp, $php);
+            $this->assertCodeEquals($php, $cvtPhp);
         }
     }
 
@@ -203,6 +203,9 @@ PHP;
         $this->doConvertTest($perl, $php);
     }
 
+    /**
+     * Test flipping if around
+     */
     public function testIfFlip1()
     {
         $perl = <<<'PERL'
@@ -216,6 +219,120 @@ PERL;
 PHP;
         $this->doConvertTest($perl, $php);
     }
+
+    /**
+     * Test operator translation
+     */
+    public function testOperators()
+    {
+        $list = [
+            [ 'eq',     '===' ],
+            [ 'ne',     '!==' ],
+            [ 'lt',     '<' ],
+            [ 'gt',     '>' ],
+            [ 'and',    '&&' ],
+            [ 'or',     '||' ]
+        ];
+
+        foreach ($list as $chk) {
+            $perlOp = $chk[0];
+            $phpOp = $chk[1];
+
+            $perl = <<<"PERL"
+    if (\$a $perlOp \$b) {
+        print;
+    }
+PERL;
+
+            $php = <<<"PHP"
+    if (\$a $phpOp \$b) {
+        print;
+    }
+PHP;
+        }
+
+        $this->doConvertTest($perl, $php);
+    }
+
+    /**
+     * Test regular expression operator
+     */
+    public function testRegEx()
+    {
+        // Test simple
+        $perl = <<<'PERL'
+            if ($x =~ /\s+/) {
+                print;
+            }
+PERL;
+
+        $php = <<<'PHP'
+            if (preg_match('/\s+/', $x)) {
+                print;
+            }
+PHP;
+        $this->doConvertTest($perl, $php);
+    }
+
+    /**
+     * Test negative regular expression operator
+     */
+    public function testNegRegEx()
+    {
+        $perl = <<<'PERL'
+            if ($x !~ /\s+/) {
+                print;
+            }
+PERL;
+
+        $php = <<<'PHP'
+            if (! (preg_match('/\s+/', $x))) {
+                print;
+            }
+PHP;
+        $this->doConvertTest($perl, $php);
+    }
+
+//    /**
+//     * Test of str_repeat
+//     */
+//    public function testStrRepeat()
+//    {
+//        // Test simple expression
+//        $perl = <<<'PERL'
+//            $s = ' ' x $b;
+//PERL;
+//
+//        $php = <<<'PHP'
+//            $s = str_repeat(' ', $b);
+//PHP;
+//        $this->doConvertTest($perl, $php);
+//
+//        // Test with right hand expression
+//        $perl = <<<'PERL'
+//            $s = ' ' x (5 * $x);
+//PERL;
+//
+//        $php = <<<'PHP'
+//            $s = str_repeat(' ', (5 * $x));
+//PHP;
+//        $this->doConvertTest($perl, $php);
+//    }
+
+    /**
+     * Template for new tests
+     */
+    public function name()
+    {
+        $perl = <<<'PERL'
+PERL;
+
+        $php = <<<'PHP'
+PHP;
+        $this->doConvertTest($perl, $php);
+    }
+
+
 }
 
 
