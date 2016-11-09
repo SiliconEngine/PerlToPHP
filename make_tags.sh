@@ -1,1 +1,0 @@
-ctags --exclude=./perl -R .
