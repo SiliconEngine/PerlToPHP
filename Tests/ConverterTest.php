@@ -293,6 +293,52 @@ PHP;
         $this->doConvertTest($perl, $php);
     }
 
+    /**
+     * Test function argument conversion ('= @_' method)
+     */
+    public function testFuncArg1()
+    {
+        $perl = <<<'PERL'
+            sub func
+            {
+                my ($a, $b) = @_;
+
+                print;
+            }
+PERL;
+
+        $php = <<<'PHP'
+            function func($a, $b)
+            {
+                print;
+            }
+PHP;
+        $this->doConvertTest($perl, $php);
+    }
+
+    /**
+     * Test function argument conversion (shift method)
+     */
+    public function testFuncArg2()
+    {
+        $perl = <<<'PERL'
+            sub func
+            {
+                my $a = shift;
+                my $b = shift;
+
+                print;
+            }
+PERL;
+
+        $php = <<<'PHP'
+            function func($a, $b)
+            {
+                print;
+            }
+PHP;
+        $this->doConvertTest($perl, $php);
+    }
 //    /**
 //     * Test of str_repeat
 //     */

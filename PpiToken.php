@@ -612,7 +612,7 @@ class PpiTokenWord extends PpiToken
             // Function context
 
             // Get the name of the function
-            $tokens = $this->peekAhead(2);
+            $tokens = $this->peekAhead(2, [ 'skip_ws' => true ]);
             $name = lcfirst($this->cvtCamelCase($tokens[0]->content));
             $tokens[0]->cancel();
             $argList = [];
@@ -624,7 +624,7 @@ class PpiTokenWord extends PpiToken
                 $obj = $tokens[1];
                 $obj = $obj->next;
                 $firstObj = $obj;
-                $obj = $obj->next->SkipWhitespace();
+                $obj = $obj->next;
 
                 $argList = [];
                 $found = false;
@@ -641,6 +641,8 @@ class PpiTokenWord extends PpiToken
                             while ($obj->next->isNewline()) {
                                 $obj = $obj->next;
                             }
+                            // Keep last newline
+                            $obj = $obj->prev;
                             break;
                         }
 
