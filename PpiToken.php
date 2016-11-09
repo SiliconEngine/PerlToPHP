@@ -33,6 +33,9 @@ class PpiTokenPrototype extends PpiToken { }
 class PpiTokenAttribute extends PpiToken { }
 class PpiTokenUnknown extends PpiToken { }
 
+// Added token not in Perl
+class PpiTokenNewline extends PpiTokenWhitespace { }
+
 class PpiToken extends PpiElement
 {
     public function anaContext()
@@ -227,14 +230,16 @@ class PpiTokenOperator extends PpiToken
         } else {
             // Match
 
+            $this->preWs = '';
             $this->content = "preg_match('$regex', $var)";
             if ($neg) {
                 $this->content = "! ({$this->content})";
             }
         }
 
-        $left->cancelUntil($this);
-        $this->next->cancelUntil($right->next);
+        $left->cancelUntil($this->prev);
+        $this->next->cancelUntil($right);
+
         return parent::genCode();
     }
 
@@ -607,17 +612,16 @@ class PpiTokenWord extends PpiToken
             // Function context
 
             // Get the name of the function
-            $tokens = $this->peekAhead(4);
-            $name = lcfirst($this->cvtCamelCase($tokens[1]->content));
+            $tokens = $this->peekAhead(2);
+            $name = lcfirst($this->cvtCamelCase($tokens[0]->content));
             $tokens[0]->cancel();
-            $tokens[1]->cancel();
             $argList = [];
 
-            if ($tokens[3] instanceof PpiStructureBlock) {
+            if ($tokens[1] instanceof PpiStructureBlock) {
                 // Try to figure out an argument list
                 // First check for the easy case of "my ($var, $var2) = @_;"
 
-                $obj = $tokens[3];
+                $obj = $tokens[1];
                 $obj = $obj->next;
                 $firstObj = $obj;
                 $obj = $obj->next->SkipWhitespace();
@@ -654,7 +658,7 @@ class PpiTokenWord extends PpiToken
                 if (! $found) {
                     $argList = [];
 
-                    // Not found, try the more complicate version. Look
+                    // Not found, try the more complicated version. Look
                     // for lines like: "my $var = shift;"
                     $obj = $saveObj;
                     while ($obj instanceof PpiStatementVariable) {
@@ -776,9 +780,11 @@ class PpiTokenWord extends PpiToken
         $obj = $this->getNextNonWs();
         if ($obj instanceof PpiStructureList) {
             if ($hasInit) {
-                // If an initializer, this is handled elsewhere.
+                // If an initializer, this is handled elsewhere. Remove
+                // the 'my' and the following whitespace
 
-                $this->killTokenAndWs();
+                // Otherwise, kill the 'my' and following whitespace
+                $this->killContentAndWs();
                 return;
             }
 
@@ -804,26 +810,26 @@ class PpiTokenWord extends PpiToken
                     $s .= "$var = null;";
                 }
                 $this->content = $s;
-                $this->next->cancelUntil($scan->next);
+                $this->next->cancelUntil($scan);
             }
             return;
         }
 
-        // Otherwise, kill the 'my'
-        $this->killTokenAndWs();
+        // Otherwise, kill the 'my' and following whitespace
+        $this->killContentAndWs();
 
         // Scan ahead and see if there's an initializer. If so, just kill
         // the 'my' and whitespace. Otherwise add an initializer to the
         // variable.
-        $peek = $this->peekAhead(3, [ 'skip_ws' => true]);
-        if ($peek[1]->content == '=') {
+        $peek = $this->peekAhead(2, [ 'skip_ws' => true]);
+        if ($peek[0]->content == '=') {
             // Have initializer, we're done.
 
             return;
         }
 
-        if ($peek[2]->content == ';') {
-            $peek[2]->content = " = null;";
+        if ($peek[1]->content == ';') {
+            $peek[1]->content = " = null;";
         }
         return;
     }
@@ -833,9 +839,9 @@ class PpiTokenWord extends PpiToken
         $this->content = 'preg_split';
 
         // Test if we can use faster explode
-        $peek = $this->peekAhead(3, [ 'skip_ws' => true]);
-        if ($peek[2] instanceof PpiTokenQuote) {
-            $pattern = $peek[2]->content;
+        $peek = $this->peekAhead(2, [ 'skip_ws' => true]);
+        if ($peek[1] instanceof PpiTokenQuote) {
+            $pattern = $peek[1]->content;
             if (! preg_match('/[\\().*]/', $pattern)) {
                 // Doesn't look like a pattern, use explode
 
@@ -852,18 +858,16 @@ class PpiTokenWord extends PpiToken
     private function convertWordWithArg($newWord)
     {
         $this->content = $newWord;
-        $peek = $this->peekAhead(2);
-        if ($peek[0] instanceof PpiTokenWhitespace &&
-                $peek[1] instanceof PpiTokenSymbol) {
+        $peek = $this->peekAhead(1);
+        if ($peek[0] instanceof PpiTokenSymbol) {
 
             // Enclose everything up to the semicolon
-            $obj = $peek[1];
+            $obj = $peek[0];
             do {
                 $obj = $obj->next;
             } while ($obj->content != ';');
 
-            $peek[0]->cancel();
-            $peek[1]->startContent = '(';
+            $peek[0]->startContent = '(';
             $obj->startContent = ')';
         }
     }
@@ -918,6 +922,8 @@ class PpiTokenWord extends PpiToken
             }
         }
 
+        $indentAmt = $this->getIndent();
+
         $leftText = '';
         $rightText = '';
         $foundObj = false;
@@ -933,9 +939,12 @@ class PpiTokenWord extends PpiToken
             } else {
                 $rightText .= $obj->getRecursiveContent();
             }
-
-            $obj->cancel();
         }
+        $parent->cancelAll();
+        $this->uncancel();
+
+        // Copy any spaces at front of expression to new expression
+        $this->preWs = $parent->getNextToken()->preWs;
 
         $rightText = trim(preg_replace('/;\s*$/', '', $rightText));
         if (substr($rightText, 0, 1) != '(') {
@@ -951,7 +960,7 @@ class PpiTokenWord extends PpiToken
         $rightText = preg_replace('/\s+/', ' ', $rightText);
         $leftText = preg_replace('/\s+/', ' ', $leftText);
 
-        $indent = str_repeat(' ', $parent->getIndent());
+        $indent = str_repeat(' ', $indentAmt);
         $this->content = "$keyword $rightText {\n" .
             "$indent    $leftText;\n" .
             "$indent}";
@@ -1012,7 +1021,7 @@ class PpiTokenWord extends PpiToken
         }
         $exprText = trim($exprText);
 
-        $this->next->cancelUntil(end($exprObj->children));
+        $this->next->cancelUntil($exprObj->getLastLeaf());
 
         $this->content = "foreach ($exprText as $var)";
         return;

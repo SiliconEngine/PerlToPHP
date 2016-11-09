@@ -1,0 +1,2 @@
+#!/bin/sh
+phpunit --stop-on-failure --colors --bootstrap ./bootstrap.php .

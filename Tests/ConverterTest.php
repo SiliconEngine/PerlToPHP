@@ -29,8 +29,8 @@ class ConverterTest extends \AbstractConverterTester
 
         // Also auto-test enclosed in function, if not already
         if (strpos($php, 'function') === false) {
-            $perl = "sub func {\n" . $perl . "\n}";
-            $php = "function func() {\n" . $php . "\n}";
+            $perl = "sub func {\n" . $perl . "\n}\n";
+            $php = "function func() {\n" . $php . "\n}\n";
             $cvtPhp = $this->convertPerl($perl);
             $this->assertCodeEquals($php, $cvtPhp);
         }

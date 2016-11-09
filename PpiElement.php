@@ -16,6 +16,8 @@ class PpiElement
     public $nextSibling;
     public $prevSibling;
 
+    public $preWs = '';                 // Whitespace preceding token
+    public $endPreWs = '';              // Whitespace preceding end content
     public $content = '';
     public $startContent = '';
     public $endContent = '';
@@ -101,22 +103,22 @@ class PpiElement
      */
     public function getRecursiveContent()
     {
-        if ($this->cancel) {
-            return '';
-        }
-
         if (! $this->converted) {
             $this->genCode();
         }
 
-        $s = $this->startContent . $this->content;
+        $s = '';
+        if (! $this->cancel) {
+            $s = $this->preWs . $this->startContent . $this->content;
+        }
         foreach ($this->children as $child) {
-            if (! $child->cancel) {
-                $s .= $child->getRecursiveContent();
-            }
+            $s .= $child->getRecursiveContent();
         }
 
-        return $s . $this->endContent;
+        if (! $this->cancel) {
+            $s .= $this->endPreWs . $this->endContent;
+        }
+        return $s;
     }
 
 
@@ -141,12 +143,55 @@ class PpiElement
         $last)
     {
         $obj = $this;
-        do {
+        for(;;) {
             $obj->cancel();
+            if ($obj === $last) {
+                break;
+            }
             $obj = $obj->next;
-        } while ($obj !== null && $obj !== $last);
+        }
 
         return;
+    }
+
+    /**
+     * cancelAll - Cancel token and all children
+     */
+    public function cancelAll()
+    {
+        $this->cancel();
+        foreach ($this->children as $child) {
+            $child->cancelAll();
+        }
+    }
+
+    /**
+     * Remove content and following white space
+     */
+    public function killContentAndWs()
+    {
+        $this->content = '';                // Keep indent whitespace
+        for ($obj = $this; $obj = $obj->next; ++$obj) {
+            if ($obj instanceof PpiToken || $obj instanceof PpiStructure) {
+                $obj->preWs = '';
+                break;
+            }
+        }
+        return;
+    }
+
+
+    /**
+     * getNextToken() - Return next token or structure
+     */
+    public function getNextToken()
+    {
+        $obj = $this;
+        while (! ($obj instanceof PpiToken || $obj instanceof PpiStructure)) {
+            $obj = $obj->next;
+        }
+
+        return $obj;
     }
 
     /**
@@ -296,14 +341,24 @@ repeat:
     }
 
     /**
+     * Find lowest end leaf of a node's children
+     */
+    public function getLastLeaf()
+    {
+        $obj = $this;
+        while (count($obj->children)) {
+            $obj = end($obj->children);
+        }
+        return $obj;
+    }
+
+    /**
      * Check if object is a new line
      */
     public function isNewline()
     {
-        return ($this instanceof PpiTokenWhitespace &&
-            strpos($this->content, "\n") !== false);
+        return $this instanceof PpiTokenNewline;
     }
-
 
     /**
      * Move until newline found.
@@ -311,8 +366,7 @@ repeat:
     public function findNewline()
     {
         $obj = $this;
-        while ($obj !== null && (! ($obj instanceof PpiTokenWhitespace) ||
-                        strpos($obj->content, "\n") === false)) {
+        while ($obj !== null && ! ($obj instanceof PpiTokenNewline)) {
             $obj = $obj->next;
         }
 
@@ -332,7 +386,6 @@ repeat:
         do {
             $obj = $obj->prev;
             $leftList[] = $obj;
-//print "left! type = " . get_class($obj) . ", content = {$obj->content}\n";
         } while (! $obj->isNewline());
 
         $obj = $this;
@@ -373,23 +426,12 @@ repeat:
             $obj = $obj->prev;
         }
 
-        // Scan forward and accumulate spaces
-        $spaces = '';
-        while ($obj->isWs()) {
-            $s = $obj->content;
-
-            // If has newline, chop everything before
-            $p = strpos($s, "\n");
-            if ($p !== false) {
-                $spaces = '';
-                $s = substr($s, $p+1);
-            }
-
-            $spaces .= $s;
+        // Scan forward and find first token/structure
+        do {
             $obj = $obj->next;
-        }
+        } while (! ($obj instanceof PpiToken || $obj instanceof PpiStructure));
 
-        return strlen($this->tabExpand($spaces));
+        return strlen($this->tabExpand($obj->preWs));
     }
 
     /**
@@ -493,11 +535,96 @@ repeat:
             $content = "[ $this->startContent ] $content";
         }
         if ($this->endContent !== '') {
+            if ($this->endPreWs !== '') {
+                $s = $this->endPreWs;
+                $s = str_replace("\t", '\t', $s);
+                $s = str_replace("\n", '\n', $s);
+                $content = "$content '$s':";
+            }
             $content = "$content [ $this->endContent ]";
+        }
+        $content = str_replace("\t", '\t', $content);
+        $content = str_replace("\n", '\n', $content);
+
+        if ($this->preWs !== '') {
+            $s = $this->preWs;
+            $s = str_replace("\t", '\t', $s);
+            $s = str_replace("\n", '\n', $s);
+            $content = "'$s': $content";
         }
 
         return sprintf('%-12s %-40s   %s', $this->context ?: 'null',
             str_repeat(' ', $level*2) . get_class($this), $content);
+    }
+
+    /**
+     * Add passed object as our sibling on the right.
+     */
+    function insertRightSibling(
+        $newObj)
+    {
+        $curNext = $this->next;
+        $this->next = $newObj;
+        $newObj->prev = $this;
+        if ($curNext !== null) {
+            $curNext->prev = $newObj;
+            $newObj->next = $curNext;
+        }
+
+        $curNext = $this->nextSibling;
+        $this->nextSibling = $newObj;
+        $newObj->prevSibling = $this;
+        if ($curNext !== null) {
+            $curNext->prevSibling = $newObj;
+            $newObj->nextSibling = $curNext;
+        }
+
+        // Insert into parent's child list
+        $parent = $this->parent;
+        for ($i = 0; $i < count($parent->children); ++$i) {
+            if ($parent->children[$i] === $this) {
+                array_splice($parent->children, $i+1, 0, [$newObj]);
+                break;
+            }
+        }
+        $newObj->parent = $parent;
+
+        return;
+    }
+
+    /**
+     * Delete current object from the lexical tree
+     */
+    function delete()
+    {
+        $curNext = $this->next;
+        $curPrev = $this->prev;
+        if ($curNext !== null) {
+            $curNext->prev = $curPrev;
+        }
+        if ($curPrev !== null) {
+            $curPrev->next = $curNext;
+        }
+
+        $curNext = $this->nextSibling;
+        $curPrev = $this->prevSibling;
+        if ($curNext !== null) {
+            $curNext->prevSibling = $curPrev;
+        }
+        if ($curPrev !== null) {
+            $curPrev->nextSibling = $curNext;
+        }
+
+        // Delete from parent's child list
+        $parent = $this->parent;
+        for ($i = 0; $i < count($parent->children); ++$i) {
+            if ($parent->children[$i] === $this) {
+                array_splice($parent->children, $i, 1);
+                break;
+            }
+        }
+
+        return;
     }
 
 }
