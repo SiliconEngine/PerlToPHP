@@ -275,47 +275,55 @@ class PpiTokenComment extends PpiToken
     function genCode()
     {
         if (! $this->converted) {
-            $comment = preg_replace('/^(\s*)#/', '\1//', $this->content);
+            $comment = preg_replace('/^#/', '//', $this->content);
 
             // If block comment, convert style to PHPDOC
-            if (preg_match('/^(\s*)\/\/####/', $comment, $matches)) {
-                $this->content = "{$matches[1]}/**\n";
+            if (preg_match('/^\/\/####/', $comment, $matches)) {
+                $this->content = "/**";
 
                 $obj = $this->next;
                 $first = true;
                 $open = true;
-                while ($obj !== null && $obj instanceof PpiTokenComment) {
+                while ($obj !== null && ($obj instanceof PpiTokenComment
+                            || $obj instanceof PpiTokenNewline)) {
                     $s = $obj->content;
 
                     /* #      # */
-                    if (preg_match('/^(\s*)#\s*#$/', $s, $matches)) {
+
+                    if ($obj instanceof PpiTokenNewline) {
+                        // Pass through newlines
+
+                    } elseif (preg_match('/^#\s*#$/', $s, $matches)) {
                         // Remove blanks if directly following top
                         if (! $first) {
-                            $obj->content = "{$matches[1]} *\n";
+                            $obj->content = " *";
                             $obj->converted = true;
                         } else {
                             $obj->cancel();
+                            $obj->next->cancel();       // Newline
                         }
 
-                    /* //   text   # */
-                    } elseif (preg_match('/^(\s*)#(\s+.*)#\s*$/', $s, $matches)) {
+                    /* #   text   # */
+                    } elseif (preg_match('/^#\s+(.*)#\s*$/', $s, $matches)) {
                         $first = false;
-                        $obj->content = "{$matches[1]} *{$matches[2]}\n";
+                        $obj->content = " * " . trim($matches[1]);
                         $obj->converted = true;
 
                         // Remove "SubName - ", which was old comment convention
                         $obj->content = preg_replace('/^(\s+\*\s+)\w+ - /',
                             '\1', $obj->content);
 
-                    /* //##### */
-                    } elseif (preg_match('/^(\s*)#+\s*$/', $s, $matches)) {
+                    /* ####### */
+                    } elseif (preg_match('/^#+\s*$/', $s, $matches)) {
                         $first = false;
-                        $obj->content = "{$matches[1]} */\n";
+                        $obj->content = " */";
                         $obj->converted = true;
 
                         // If previous was blank, delete it
-                        if (preg_match('/^\s*\*\s*$/', $obj->prev->content)) {
-                            $obj->prev->cancel();
+                        $last = $obj->prev->prev;
+                        if (preg_match('/^\s*\*\s*$/', $last->content)) {
+                            $last->cancel();
+                            $last->next->cancel();      // Newline
                         }
                         $open = false;
                         break;

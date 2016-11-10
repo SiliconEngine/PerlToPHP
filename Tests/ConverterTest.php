@@ -366,6 +366,42 @@ PHP;
     }
 
     /**
+     * Test comment block conversion
+     */
+    public function testCommentBlockStyle()
+    {
+        $perl = <<<'PERL'
+###################################################################
+#								  #
+#   new_function - this is a test				  #
+#								  #
+###################################################################
+PERL;
+
+        $php = <<<'PHP'
+/**
+ * this is a test
+ */
+PHP;
+        $this->doConvertTest($perl, $php);
+
+        $perl = <<<'PERL'
+    ###################################################################
+    #								      #
+    #   new_function - this is a test				      #
+    #								      #
+    ###################################################################
+PERL;
+
+        $php = <<<'PHP'
+    /**
+     * this is a test
+     */
+PHP;
+        $this->doConvertTest($perl, $php);
+    }
+
+    /**
      * Template for new tests
      */
     public function name()
