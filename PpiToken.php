@@ -243,22 +243,26 @@ class PpiTokenOperator extends PpiToken
         return parent::genCode();
     }
 
+    /**
+     * Convert 'x' (string repeat) operator.
+     */
     private function cvtStrRepeat()
     {
-        $left = $this->getPrevNonWs();
-        $right = $this->getNextNonWs();
-        $str = $left->content;
-        $count = $right->content;
+        $left = $this->prev;
+        $right = $this->next;
+        $left->preWs = '';
+        $right->preWs = '';
 
-        $this->content = "str_repeat($str, $count)";
-        $left->cancel();
-        $right->cancel();
+        $leftText = $left->getRecursiveContent();
+        $rightText = $right->getRecursiveContent();
+
+        $this->content = "str_repeat($leftText, $rightText)";
+        $left->cancelAll();
+        $right->cancelAll();
         return parent::genCode();
     }
 
 }
-
-
 
 
 class PpiTokenComment extends PpiToken

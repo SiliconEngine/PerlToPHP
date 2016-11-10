@@ -339,31 +339,31 @@ PERL;
 PHP;
         $this->doConvertTest($perl, $php);
     }
-//    /**
-//     * Test of str_repeat
-//     */
-//    public function testStrRepeat()
-//    {
-//        // Test simple expression
-//        $perl = <<<'PERL'
-//            $s = ' ' x $b;
-//PERL;
-//
-//        $php = <<<'PHP'
-//            $s = str_repeat(' ', $b);
-//PHP;
-//        $this->doConvertTest($perl, $php);
-//
-//        // Test with right hand expression
-//        $perl = <<<'PERL'
-//            $s = ' ' x (5 * $x);
-//PERL;
-//
-//        $php = <<<'PHP'
-//            $s = str_repeat(' ', (5 * $x));
-//PHP;
-//        $this->doConvertTest($perl, $php);
-//    }
+    /**
+     * Test of str_repeat
+     */
+    public function testStrRepeat()
+    {
+        // Test simple expression
+        $perl = <<<'PERL'
+            $s = ' ' x $b;
+PERL;
+
+        $php = <<<'PHP'
+            $s = str_repeat(' ', $b);
+PHP;
+        $this->doConvertTest($perl, $php);
+
+        // Test with right hand expression
+        $perl = <<<'PERL'
+            $s = ' ' x (5 * $x);
+PERL;
+
+        $php = <<<'PHP'
+            $s = str_repeat(' ', (5 * $x));
+PHP;
+        $this->doConvertTest($perl, $php);
+    }
 
     /**
      * Template for new tests
