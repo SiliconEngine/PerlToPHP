@@ -391,7 +391,7 @@ PERL;
 
         $php = <<<'PHP'
 /**
- * this is a test
+ *   this is a test
  */
 PHP;
         $this->doConvertTest($perl, $php);
@@ -407,7 +407,7 @@ PERL;
 
         $php = <<<'PHP'
     /**
-     * this is a test
+     *   this is a test
      */
 PHP;
         $this->doConvertTest($perl, $php);

@@ -305,9 +305,9 @@ class PpiTokenComment extends PpiToken
                         }
 
                     /* #   text   # */
-                    } elseif (preg_match('/^#\s+(.*)#\s*$/', $s, $matches)) {
+                    } elseif (preg_match('/^#(\s+)(.*)#\s*$/', $s, $matches)) {
                         $first = false;
-                        $obj->content = " * " . trim($matches[1]);
+                        $obj->content = " *{$matches[1]}" . rtrim($matches[2]);
                         $obj->converted = true;
 
                         // Remove "SubName - ", which was old comment convention
