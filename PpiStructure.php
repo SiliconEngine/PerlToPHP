@@ -162,6 +162,11 @@ class PpiStructureList extends PpiStructure
                 return parent::genCode();
             }
 
+            // If a regular function call, don't change (ex: word('a', 'b') )
+            if ($this->prev instanceof PpiTokenWord) {
+                return parent::genCode();
+            }
+
             // If array context, convert to brackets
             if ($this->context == 'array') {
                 $this->startContent = '[';

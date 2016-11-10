@@ -318,13 +318,10 @@ class Converter
     /**
      * Dump out lexical structure for debug purposes.
      */
-    public function dumpStruct(
-        $obj = null,
+    static function dumpStruct(
+        $obj,
         $level = 0)
     {
-        if ($obj === null) {
-            $obj = $this->root;
-        }
         $canInd = $obj->cancel ? '-' : ' ';
         $s = sprintf("%3d%s%s\n", $obj->id, $canInd, $obj->fmtObj($level));
         foreach ($obj->children as $sub) {
@@ -332,7 +329,7 @@ class Converter
                 print "bad parent!\n";
                 exit(0);
             }
-            $s .= $this->dumpStruct($sub, $level+1);
+            $s .= self::dumpStruct($sub, $level+1);
         }
 
         return $s;
@@ -356,7 +353,7 @@ class Converter
         $this->root->analyzeTreeContext();
 
         if (! empty($ppiFn)) {
-            file_put_contents($ppiFn, $this->dumpStruct());
+            file_put_contents($ppiFn, self::dumpStruct($this->root));
         }
 
         if (! $this->quietOpt) {
@@ -370,7 +367,7 @@ class Converter
 
         if (! empty($ppiFn) && strpos($ppiFn, 'ppi') !== false) {
             $newFn = str_replace('ppi', 'pp2', $ppiFn);
-            file_put_contents($newFn, $this->dumpStruct());
+            file_put_contents($newFn, self::dumpStruct($this->root));
         }
 
         // Recursively generate code

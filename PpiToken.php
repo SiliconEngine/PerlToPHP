@@ -73,7 +73,11 @@ class PpiTokenRegexp extends PpiToken
     function genCode()
     {
         if (! $this->converted) {
-            $this->content = "'{$this->content}'";
+            $regex = $this->content;
+
+            // Need to escape single quotes in regex expression
+            $regex = str_replace("'", "\\'", $regex);
+            $this->content = "'$regex'";
         }
         return parent::genCode();
     }
@@ -194,19 +198,23 @@ class PpiTokenOperator extends PpiToken
 
     function cvtRegEx($neg = false)
     {
-        $left = $this->getPrevNonWs();
-        $right = $this->getNextNonWs();
+        $left = $this->prevSibling;
+        $right = $this->next;
+        $right->preWs = '';
 
-        $var = $left->content;
-        $regex = $right->content;
+        // Get left side variable to match
+        $var = trim($left->getRecursiveContent());
 
-        // Need to escape single quotes in regex expression
-        $regex = str_replace("'", "\\'", $regex);
+        // Get right side regex expression, which might come back with
+        // single quotes.
+        $regex = $right->getRecursiveContent();
 
-        if (substr($regex, 0, 1) == 's') {
+        if (substr($regex, 0, 2) == "'s") {
             // Substitute, need to split into regex and substitute
 
-            $regex = substr($regex, 1);         // Strip the 's'
+            // Strip the quotes and the 's' first
+            $regex = substr($regex, 2, -1);
+
             $regex = preg_replace('/\\w*$/', '', $regex);
             $delim = substr($regex, 0, 1);
             if ($delim == '/') {
@@ -218,8 +226,11 @@ class PpiTokenOperator extends PpiToken
             if (preg_match("/($delim.*(?<!\\\\)$delim)(.*)$delim/", $regex,
                     $matches)) {
 
+                $pattern = trim($matches[1]);
+                $replace = trim($matches[2]);
                 $this->content = "$var = preg_replace('{$matches[1]}', " .
                     "'{$matches[2]}', $var)";
+                $this->preWs = $left->preWs;
             } else {
                 // Can't convert
 
@@ -229,15 +240,17 @@ class PpiTokenOperator extends PpiToken
         } else {
             // Match
 
+            $regex = trim($regex);
+            $var = trim($var);
             $this->preWs = '';
-            $this->content = "preg_match('$regex', $var)";
+            $this->content = "preg_match($regex, $var)";
             if ($neg) {
                 $this->content = "! ({$this->content})";
             }
         }
 
-        $left->cancelUntil($this->prev);
-        $this->next->cancelUntil($right);
+        $left->cancelAll();
+        $right->cancelAll();
 
         return parent::genCode();
     }
@@ -525,14 +538,16 @@ class PpiTokenWord extends PpiToken
             }
 
             if ($this->parent instanceof PpiStatementExpression) {
-                if ($this->parent->parent instanceof PpiStructureSubscript) {
-                    // Might be a bareword hash index
 
+                // Check for bareword hash index. Sibling should be null,
+                // which means word is by itself.
+                if ($this->parent->parent instanceof PpiStructureSubscript
+                        && $this->nextSibling === null) {
                     return $this->quoteBareWord();
                 }
 
-                $next = $this->getNextNonWs();
-                if ($next->content == '=>') {
+                // Check for a bareword key: abc => 'def'
+                if ($this->next->content == '=>') {
                     return $this->quoteBareWord();
                 }
             }
@@ -573,7 +588,7 @@ class PpiTokenWord extends PpiToken
                     $this->content = 'strlen';
                     break;
                 case 'defined':
-                    $this->content = '/*check*/isset';
+                    $this->convertWordWithArg('/*check*/isset');
                     break;
                 case 'sub':         $this->tokenWordSub();          break;
                 case 'package':     $this->tokenWordPackage();      break;
@@ -842,19 +857,24 @@ class PpiTokenWord extends PpiToken
     private function tokenWordSplit()
     {
         $this->content = 'preg_split';
+        $obj = $this->next;
+        if ($obj instanceof PpiStructureList) {
+            $obj = $obj->next;
+        }
+        if ($obj instanceof PpiStatementExpression) {
+            $obj = $obj->next;
+        }
 
+        print Converter::dumpStruct($this->root);
         // Test if we can use faster explode
-        $peek = $this->peekAhead(2, [ 'skip_ws' => true]);
-        if ($peek[1] instanceof PpiTokenQuote) {
-            $pattern = $peek[1]->content;
+        if ($obj instanceof PpiTokenQuote) {
+            $pattern = $obj->content;
             if (! preg_match('/[\\().*]/', $pattern)) {
                 // Doesn't look like a pattern, use explode
 
                 $this->content = 'explode';
             }
         }
-
-
     }
 
     /**
@@ -863,18 +883,15 @@ class PpiTokenWord extends PpiToken
     private function convertWordWithArg($newWord)
     {
         $this->content = $newWord;
-        $peek = $this->peekAhead(1);
-        if ($peek[0] instanceof PpiTokenSymbol) {
-
-            // Enclose everything up to the semicolon
-            $obj = $peek[0];
-            do {
-                $obj = $obj->next;
-            } while ($obj->content != ';');
-
-            $peek[0]->startContent = '(';
-            $obj->startContent = ')';
+        $obj = $this->next;
+        if (! ($obj instanceof PpiStructure)) {
+            $obj->preWs = '';
+            $code = $obj->getRecursiveContent();
+            $this->content = "$newWord($code)";
+            $obj->cancelAll();
         }
+
+        return;
     }
 
     /**

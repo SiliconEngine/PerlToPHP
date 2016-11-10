@@ -255,9 +255,9 @@ PHP;
     }
 
     /**
-     * Test regular expression operator
+     * Test regular expression match operator
      */
-    public function testRegEx()
+    public function testRegExMatch()
     {
         // Test simple
         $perl = <<<'PERL'
@@ -270,6 +270,47 @@ PERL;
             if (preg_match('/\s+/', $x)) {
                 print;
             }
+PHP;
+        $this->doConvertTest($perl, $php);
+
+
+        // Test with expression
+        $perl = <<<'PERL'
+            if (($x . $y) =~ /\s+/) {
+                print;
+            }
+PERL;
+
+        $php = <<<'PHP'
+            if (preg_match('/\s+/', ($x . $y))) {
+                print;
+            }
+PHP;
+        $this->doConvertTest($perl, $php);
+    }
+
+    /**
+     * Test regular expression substitute operator
+     */
+    public function testRegExReplace()
+    {
+        // Test simple
+        $perl = <<<'PERL'
+            $x =~ s/\s+/abc/;
+PERL;
+
+        $php = <<<'PHP'
+            $x = preg_replace('/\s+/', 'abc', $x);
+PHP;
+        $this->doConvertTest($perl, $php);
+
+        // Test with 'g'
+        $perl = <<<'PERL'
+            $x =~ s/\s+/abc/g;
+PERL;
+
+        $php = <<<'PHP'
+            $x = preg_replace('/\s+/', 'abc', $x);
 PHP;
         $this->doConvertTest($perl, $php);
     }
@@ -448,6 +489,113 @@ EOT;
 PHP;
         $this->doConvertTest($perl, $php);
     }
+
+    /**
+     * Check 'qw'
+     */
+    public function testQwQuoting()
+    {
+        $perl = <<<'PERL'
+            $a = qw(a def c);
+PERL;
+
+        $php = <<<'PHP'
+            $a = [ 'a', 'def', 'c' ];
+PHP;
+        $this->doConvertTest($perl, $php);
+    }
+
+    /**
+     * Test monadic function that can be used without parenthesis
+     * (Example: $a = pop $b)
+     */
+    public function testFuncConvert()
+    {
+        $list = [
+            [ 'perl' => 'lc', 'php' => 'strtolower' ],
+            [ 'perl' => 'lc', 'php' => 'strtolower' ],
+            [ 'perl' => 'shift', 'php' => 'array_shift' ],
+            [ 'perl' => 'pop', 'php' => 'array_pop' ],
+            [ 'perl' => 'uc', 'php' => 'strtoupper' ],
+            [ 'perl' => 'lc', 'php' => 'strtolower' ],
+            [ 'perl' => 'delete', 'php' => 'unset' ],
+            [ 'perl' => 'defined', 'php' => '/*check*/isset' ],
+        ];
+
+        foreach ($list as $func) {
+
+            // Test straightforward
+            $perl = <<<"PERL"
+                \$a = {$func['perl']} \$b;
+PERL;
+
+            $php = <<<"PHP"
+                \$a = {$func['php']}(\$b);
+PHP;
+            $this->doConvertTest($perl, $php);
+
+            // Test as an index, like $a = $b[pop $c];
+            $perl = <<<"PERL"
+                \$a = \$b[{$func['perl']} \$c];
+PERL;
+
+            $php = <<<"PHP"
+                \$a = \$b[{$func['php']}(\$c)];
+PHP;
+            $this->doConvertTest($perl, $php);
+        }
+    }
+
+    /**
+     * Check 'elsif'
+     */
+    public function testElsif()
+    {
+        $perl = <<<'PERL'
+            if ($a < $b) {
+                print;
+            } elsif ($c < $d) {
+                print;
+            }
+PERL;
+
+        $php = <<<'PHP'
+            if ($a < $b) {
+                print;
+            } elseif ($c < $d) {
+                print;
+            }
+PHP;
+        $this->doConvertTest($perl, $php);
+    }
+
+    /**
+     * split
+     */
+    public function testSplit()
+    {
+        // Split without pattern
+        $perl = <<<'PERL'
+            @x = split(':', $b . $c);
+PERL;
+
+        $php = <<<'PHP'
+            $x = explode(':', $b . $c);
+PHP;
+        $this->doConvertTest($perl, $php);
+
+
+        // Split with pattern
+        $perl = <<<'PERL'
+            @x = split(/[a-z]/, $b . $c);
+PERL;
+
+        $php = <<<'PHP'
+            $x = preg_split('/[a-z]/', $b . $c);
+PHP;
+        $this->doConvertTest($perl, $php);
+    }
+
 
     /**
      * Template for new tests
