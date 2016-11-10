@@ -414,6 +414,42 @@ PHP;
     }
 
     /**
+     * 'local' keyword.
+     */
+    public function testLocalKeyword()
+    {
+        $perl = <<<'PERL'
+            local $a = 'b';
+PERL;
+
+        $php = <<<'PHP'
+            $a = 'b';
+PHP;
+        $this->doConvertTest($perl, $php);
+    }
+
+    /**
+     * Test 'qq' style quoting
+     */
+    public function testQqQuoting()
+    {
+        $perl = <<<'PERL'
+            $a = qq|
+test
+    test|;
+PERL;
+
+        $php = <<<'PHP'
+            $a = <<<EOT
+
+test
+    test
+EOT;
+PHP;
+        $this->doConvertTest($perl, $php);
+    }
+
+    /**
      * Template for new tests
      */
     public function name()

@@ -14,7 +14,6 @@ class PpiTokenArrayIndex extends PpiToken { }
 class PpiTokenQuoteSingle extends PpiTokenQuote { }
 class PpiTokenQuoteDouble extends PpiTokenQuote { }
 class PpiTokenQuoteLiteral extends PpiTokenQuote { }
-class PpiTokenQuoteInterpolate extends PpiTokenQuote { }
 class PpiTokenQuoteLike extends PpiToken { }
 class PpiTokenQuoteLikeBacktick extends PpiTokenQuoteLike { }
 class PpiTokenQuoteLikeCommand extends PpiTokenQuoteLike { }
@@ -588,7 +587,8 @@ class PpiTokenWord extends PpiToken
                     $this->tokenWordConditionals(true, 'if');
                     break;
                 case 'STDERR':
-                    $this->killTokenAndWs();
+                case 'local':
+                    $this->killContentAndWs();
                     break;
                 }
             } else {
@@ -763,16 +763,6 @@ class PpiTokenWord extends PpiToken
             $obj = $obj->next;
             $obj->cancel();
         } while ($obj->content != ';');
-    }
-
-    private function killTokenAndWs()
-    {
-        $this->cancel();
-        $obj = $this->next;
-        while ($obj instanceof PpiTokenWhitespace) {
-            $obj->cancel();
-            $obj = $obj->next;
-        }
     }
 
     private function tokenWordMy()
@@ -1041,5 +1031,29 @@ class PpiTokenWord extends PpiToken
         $this->content = "foreach ($exprText as $var)";
         return;
     }
+
+}
+
+/**
+ * Things like "qq|  stuff |;";
+ */
+class PpiTokenQuoteInterpolate extends PpiTokenQuote
+{
+    function genCode()
+    {
+        if (! $this->converted) {
+            // Convert these to "<<<EOT" style
+            // They may have literal \n and \t, which we convert here.
+
+            $content = "<<<EOT\n" .
+                substr($this->content, 3, -1) .
+                "\nEOT";
+            $content = str_replace('\n', "\n", $content);
+            $content = str_replace('\t', "\t", $content);
+            $this->content = $content;
+            return parent::genCode();
+        }
+    }
+
 
 }
