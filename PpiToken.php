@@ -276,6 +276,7 @@ class PpiTokenComment extends PpiToken
     {
         if (! $this->converted) {
             $comment = preg_replace('/^#/', '//', $this->content);
+            $this->content = $comment;
 
             // If block comment, convert style to PHPDOC
             if (preg_match('/^\/\/####/', $comment, $matches)) {

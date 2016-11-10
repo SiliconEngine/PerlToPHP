@@ -370,6 +370,17 @@ PHP;
      */
     public function testCommentBlockStyle()
     {
+        // Test changing regular comment from # to //
+        $perl = <<<'PERL'
+            $a = 'b';           # test
+PERL;
+
+        $php = <<<'PHP'
+            $a = 'b';           // test
+PHP;
+        $this->doConvertTest($perl, $php);
+
+        // Test changing block comment
         $perl = <<<'PERL'
 ###################################################################
 #								  #
@@ -385,6 +396,7 @@ PERL;
 PHP;
         $this->doConvertTest($perl, $php);
 
+        // Test changing indented block comment
         $perl = <<<'PERL'
     ###################################################################
     #								      #
