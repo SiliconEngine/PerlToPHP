@@ -9,7 +9,6 @@ class PpiTokenNumberFloat extends PpiTokenNumber { }
 class PpiTokenNumberExp extends PpiTokenNumberFloat { }
 class PpiTokenNumberVersion extends PpiTokenNumber { }
 class PpiTokenDashedWord extends PpiToken { }
-class PpiTokenMagic extends PpiTokenSymbol { }
 class PpiTokenArrayIndex extends PpiToken { }
 class PpiTokenQuoteSingle extends PpiTokenQuote { }
 class PpiTokenQuoteDouble extends PpiTokenQuote { }
@@ -47,6 +46,28 @@ class PpiToken extends PpiElement
         } else {
             $this->setContext($this->getPrevSiblingNonWs()->context);
         }
+    }
+}
+
+
+/**
+ * "Magic" token (special variables)
+ */
+
+class PpiTokenMagic extends PpiTokenSymbol
+{
+    function genCode()
+    {
+        if (! $this->converted) {
+            $name = substr($this->content, 1);
+
+            // Check for numbered variable (e.g., $1)
+            if (ctype_digit($name)) {
+                $this->content = "\$fake/*check:{$this->content}*/";
+            }
+        }
+
+        return parent::genCode();
     }
 }
 
@@ -260,8 +281,16 @@ class PpiTokenOperator extends PpiToken
 
                 $pattern = trim($matches[1]);
                 $replace = trim($matches[2]);
-                $this->content = "$var = preg_replace('{$matches[1]}', " .
-                    "'{$matches[2]}', $var)";
+                $leftVar = $var;
+
+                // Check for special case that looks like this:
+                // ($x = $y) =~ s/pattern/subst/;
+                if (preg_match('/\(\s*(\$\w+)\s*=/', $leftVar, $matches)) {
+                    $leftVar = $matches[1];
+                }
+
+                $this->content = "$leftVar = preg_replace('$pattern', " .
+                    "'$replace', $var)";
                 $this->preWs = $left->preWs;
             } else {
                 // Can't convert
@@ -552,6 +581,23 @@ class PpiTokenWord extends PpiToken
             } else {
                 $this->setContext('scalar');
             }
+            break;
+
+        case 'return':
+            // Check for the "return (1, 2)" case.
+            // Scalar: return (1)
+            // Array:  return (1, 2)
+            $context = 'scalar';
+            $obj = $this->next;
+            if ($obj->startContent == '(') {
+                foreach ($obj->next->children as $child) {
+                    if ($child->content == ',') {
+                        $context = 'array';
+                        break;
+                    }
+                }
+            }
+            $this->setContext($context);
             break;
 
         default:
@@ -922,9 +968,15 @@ class PpiTokenWord extends PpiToken
      */
     private function convertWordWithArg($newWord)
     {
+        // Check for case like "$a = func(shift);". Just mark it.
+        if ($this->nextSibling === null) {
+            $this->content = "\$fake/*check:{$this->content}*/";
+            return;
+        }
+
         $this->content = $newWord;
         $obj = $this->next;
-        // Check for parenthesis
+        // Check for parentheses
         if (! ($obj instanceof PpiStructureList)) {
             $obj->preWs = '';
             $code = $obj->getRecursiveContent();

@@ -313,6 +313,16 @@ PERL;
             $x = preg_replace('/\s+/', 'abc', $x);
 PHP;
         $this->doConvertTest($perl, $php);
+
+        // Test special case: ($var1 = $var2) =~ s/pattern/sub/g;
+        $perl = <<<'PERL'
+            ($x = $q->{home_tel}) =~ s/[\(\) -]/xyz/g;
+PERL;
+
+        $php = <<<'PHP'
+            $x = preg_replace('/[\(\) -]/', 'xyz', ($x = $q['home_tel']));
+PHP;
+        $this->doConvertTest($perl, $php);
     }
 
     /**
@@ -560,6 +570,22 @@ PHP;
     }
 
     /**
+     * Test empty shift
+     */
+    public function testEmptyShift()
+    {
+        $perl = <<<'PERL'
+            $a = func(shift);
+PERL;
+
+        $php = <<<'PHP'
+            $a = func($fake/*check:shift*/);
+PHP;
+        $this->doConvertTest($perl, $php);
+    }
+
+
+    /**
      * Check 'elsif'
      */
     public function testElsif()
@@ -681,6 +707,25 @@ PERL;
             if (file_exists(($a . $b . '.def'))) {
                 print;
             }
+PHP;
+        $this->doConvertTest($perl, $php);
+    }
+
+    /**
+     * Return statement with scalar or array
+     */
+    public function testReturn()
+    {
+        $perl = <<<'PERL'
+            return 1;
+            return (1);
+            return (1, 2);
+PERL;
+
+        $php = <<<'PHP'
+            return 1;
+            return (1);
+            return [1, 2];
 PHP;
         $this->doConvertTest($perl, $php);
     }

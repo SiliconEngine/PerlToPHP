@@ -98,6 +98,7 @@ class PpiStructureList extends PpiStructure
         //      3) Elements within list are scalar
         //      4) Scan backward by sibling rather than up to parent for
         //          context.
+        //      5) Special: 'return' is array if has a comma (chk in 'return')
         //
         // TESTS:
         //    @a = (1 + 2, 3)
@@ -120,9 +121,23 @@ class PpiStructureList extends PpiStructure
 
             if ($node === null || $node->isNewline()) {
                 // Hit front of line means it might be a list assignment
-                // ($a, $b) = ...
+                // ($a, $b) = ... Check if list of variables.
+                // Note need to skip down past PpiStatementExpression
 
-                $context = 'array';
+                $foundNonSymbol = false;
+                foreach ($this->next->children as $child) {
+                    if (! ($child instanceof PpiTokenSymbol ||
+                            $child->content == ',')) {
+                        $foundNonSymbol = true;
+                        break;
+                    }
+                }
+
+                if ($foundNonSymbol) {
+                    $context = 'scalar';
+                } else {
+                    $context = 'array';
+                }
                 break;
             }
 
@@ -162,8 +177,10 @@ class PpiStructureList extends PpiStructure
                 return parent::genCode();
             }
 
-            // If a regular function call, don't change (ex: word('a', 'b') )
-            if ($this->prev instanceof PpiTokenWord) {
+            // If a regular function call, don't change (ex: word('a', 'b') ).
+            // Exception: return ('a', 'b')
+            if ($this->prev instanceof PpiTokenWord &&
+                            $this->prev->content != 'return') {
                 return parent::genCode();
             }
 
