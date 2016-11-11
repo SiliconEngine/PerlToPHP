@@ -110,6 +110,25 @@ class PpiTokenNumber extends PpiToken
     {
         $this->setContext('scalar');
     }
+
+    function genCode()
+    {
+        if (! $this->converted) {
+            // If we have the case of "1;" that needs to be at the end
+            // of perl modules, remove it.
+
+            if ($this->parent instanceof PpiStatement
+                    && $this->parent->parent instanceof PpiDocument
+                    && $this->prevSibling === null
+                    && $this->next->isSemicolon() == ';'
+                    && $this->next->next->isNewline()) {
+                $this->cancel();
+                $this->next->cancel();
+                $this->next->next->cancel();
+            }
+        }
+        return parent::genCode();
+    }
 }
 
 
@@ -526,6 +545,7 @@ class PpiTokenSymbol extends PpiToken
                 }
             }
 
+            // Convert variable names to camel case
             if (substr($varName, 0, 1) == '$') {
                 $this->content = $path . '$' .
                     $this->cvtCamelCase(substr($varName, 1));
@@ -664,6 +684,9 @@ class PpiTokenWord extends PpiToken
                     break;
                 case 'keys':
                     $this->convertWordWithArg('array_keys');
+                    break;
+                case 'close':
+                    $this->convertWordWithArg('close');
                     break;
                 case 'unshift':
                     $this->content = 'array_unshift';
@@ -837,6 +860,14 @@ class PpiTokenWord extends PpiToken
 
         $name = $this->content;
         $this->content = $this->cvtPackageName($this->content);
+
+        // If ends in 'new' and this is an assignment, convert to
+        // "= new class"
+        if (strtolower(substr($this->content, -4, 4)) == '\new' &&
+                substr($this->prev->content, -1, 1) == '=') {
+            $this->content = "new " . substr($this->content, 0, -4);
+        }
+
         return parent::genCode();
     }
 

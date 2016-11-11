@@ -11,7 +11,8 @@ class ConverterTest extends \AbstractConverterTester
 
     protected function doConvertTest(
         $perl,
-        $php)
+        $php,
+        $options = [])
     {
         // Add newlines to end if not already there. This is more convenient
         // so we don't have to have blank lines in every test.
@@ -28,7 +29,8 @@ class ConverterTest extends \AbstractConverterTester
         $this->assertCodeEquals($php, $cvtPhp);
 
         // Also auto-test enclosed in function, if not already
-        if (strpos($php, 'function') === false) {
+        if (! isset($options['no_func'])
+                    && strpos($php, 'function') === false) {
             $perl = "sub func {\n" . $perl . "\n}\n";
             $php = "function func() {\n" . $php . "\n}\n";
             $cvtPhp = $this->convertPerl($perl);
@@ -791,6 +793,39 @@ PERL;
 PHP;
         $this->doConvertTest($perl, $php);
     }
+
+    /**
+     * Convert '= Package::new()' to '= new Package()'
+     */
+    public function testConvertNew()
+    {
+        $perl = <<<'PERL'
+            $a = Package::Stuff::new('abc');
+PERL;
+
+        $php = <<<'PHP'
+            $a = new Package\Stuff('abc');
+PHP;
+        $this->doConvertTest($perl, $php);
+    }
+
+    /**
+     * Test end of module "1;"
+     */
+    public function testEndModule()
+    {
+        $perl = <<<'PERL'
+            print;
+1;
+PERL;
+
+        $php = <<<'PHP'
+            print;
+PHP;
+        $this->doConvertTest($perl, $php, [ 'no_func' => true ]);
+    }
+
+
 
 
 
