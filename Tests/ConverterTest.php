@@ -730,6 +730,68 @@ PHP;
         $this->doConvertTest($perl, $php);
     }
 
+    /**
+     * Test 'unless'
+     */
+    public function testUnless()
+    {
+        // Do straight case
+        $perl = <<<'PERL'
+            unless ($a = $b) {
+                print;
+            }
+PERL;
+
+        $php = <<<'PHP'
+            if (! ($a = $b)) {
+                print;
+            }
+PHP;
+        $this->doConvertTest($perl, $php);
+
+        // Do 'switcharound' case.
+        $perl = <<<'PERL'
+            print unless ($a = $b);
+PERL;
+
+        $php = <<<'PHP'
+            if (! ($a = $b)) {
+                print;
+            }
+PHP;
+        $this->doConvertTest($perl, $php);
+    }
+
+    /**
+     * Template for new tests
+     */
+    public function testInitialize()
+    {
+        // 1) Test if 'my' variable by itself gets an initializer.
+        // 2) Also check if the semicolon token getting modified to ' = null;'
+        //    affects the 'if' reverse check (unusual bug case).
+        $perl = <<<'PERL'
+            sub func
+            {
+                my $a;
+                if ($a == $b) {
+                    print;
+                }
+            }
+PERL;
+
+        $php = <<<'PHP'
+            function func()
+            {
+                $a = null;
+                if ($a == $b) {
+                    print;
+                }
+            }
+PHP;
+        $this->doConvertTest($perl, $php);
+    }
+
 
 
 

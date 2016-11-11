@@ -417,6 +417,15 @@ repeat:
     }
 
     /**
+     * Check if node has a semicolon at the end. Note that nodes might
+     * have text before the semicolon if they had modifications.
+     */
+    public function isSemicolon()
+    {
+        return substr($this->content, -1, 1) == ';';
+    }
+
+    /**
      * Figure out the indent for the line of the current token.
      */
     public function getIndent()
@@ -438,7 +447,7 @@ repeat:
     /**
      * Expand tab characters in string.
      */
-    function tabExpand($s)
+    public function tabExpand($s)
     {
         $tabStop = 8;
         while (strpos($s, "\t") !== false) {
@@ -567,7 +576,7 @@ repeat:
     /**
      * Add passed object as our sibling on the right.
      */
-    function insertRightSibling(
+    public function insertRightSibling(
         $newObj)
     {
         $curNext = $this->next;
@@ -602,7 +611,7 @@ repeat:
     /**
      * Add passed object as our sibling on the left.
      */
-    function insertLeftSibling(
+    public function insertLeftSibling(
         $newObj)
     {
         $curPrev = $this->prev;
@@ -661,7 +670,7 @@ repeat:
     /**
      * Delete current object from the lexical tree
      */
-    function delete()
+    public function delete()
     {
         $curNext = $this->next;
         $curPrev = $this->prev;

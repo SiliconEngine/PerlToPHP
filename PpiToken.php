@@ -64,6 +64,11 @@ class PpiTokenMagic extends PpiTokenSymbol
             // Check for numbered variable (e.g., $1)
             if (ctype_digit($name)) {
                 $this->content = "\$fake/*check:{$this->content}*/";
+
+            } else switch ($this->content) {
+                default:
+                    $this->content = "\$fake/*check:{$this->content}*/";
+                    break;
             }
         }
 
@@ -679,10 +684,10 @@ class PpiTokenWord extends PpiToken
                 case 'elsif':       $this->content = 'elseif';      break;
                 case 'foreach':     $this->tokenWordForeach();      break;
                 case 'if':
-                    $this->tokenWordConditionals(false, 'if');
+                    $this->tokenWordConditionals();
                     break;
                 case 'unless':
-                    $this->tokenWordConditionals(true, 'if');
+                    $this->tokenWordConditionals();
                     break;
                 case 'STDERR':
                 case 'local':
@@ -765,7 +770,7 @@ class PpiTokenWord extends PpiToken
                             continue;
                         }
 
-                        if ($obj->content == ';') {
+                        if ($obj->isSemicolon()) {
                             break;
                         }
                     }
@@ -788,7 +793,7 @@ class PpiTokenWord extends PpiToken
                                 ! ($obj2 instanceof PpiTokenSymbol) ||
                                 $obj3->content != '=' ||
                                 $obj4->content != 'shift' ||
-                                $obj5->content != ';') {
+                                ! $obj5->isSemicolon()) {
 
                             break;
                         }
@@ -864,7 +869,7 @@ class PpiTokenWord extends PpiToken
         do {
             $obj = $obj->next;
             $obj->cancel();
-        } while ($obj->content != ';');
+        } while (! $obj->isSemicolon());
     }
 
     private function tokenWordMy()
@@ -878,7 +883,7 @@ class PpiTokenWord extends PpiToken
 
         // Scan ahead and see if we have an initializer somewhere
         $scan = $this;
-        while ($scan->content != ';' && $scan->content != '=') {
+        while (! $scan->isSemicolon() && $scan->content != '=') {
             $scan = $scan->next;
         }
         $hasInit = $scan->content == '=';
@@ -935,7 +940,7 @@ class PpiTokenWord extends PpiToken
             return;
         }
 
-        if ($peek[1]->content == ';') {
+        if ($peek[1]->isSemicolon()) {
             $peek[1]->content = " = null;";
         }
         return;
@@ -1006,11 +1011,12 @@ class PpiTokenWord extends PpiToken
      * Process conditional statements, such as 'if', 'until', etc
      * Particularly deals with things like "$a = 10 if $b == 20";
      */
-    private function tokenWordConditionals(
-        $neg,                       // Reverse condition, as with until
-        $keyword)                   // Keyword to translate to
+    private function tokenWordConditionals()
     {
+        $neg = $this->content == 'unless';
         $needSwitch = false;
+
+        // Scan ahead to see if we need a reverse of "expr if (cond);"
         $obj = $this;
         while (($obj = $obj->prev) !== null) {
             if ($obj->isWs()) {
@@ -1021,7 +1027,7 @@ class PpiTokenWord extends PpiToken
                 break;
             }
 
-            if ($obj->content == ';') {
+            if ($obj->isSemicolon()) {
                 break;
             }
 
@@ -1034,7 +1040,13 @@ class PpiTokenWord extends PpiToken
         }
 
         if (! $needSwitch) {
-            // No code before the 'if' statement.
+            // No code before the 'if' statement. If 'unless', then we need
+            // to reverse the conditional.
+            if ($this->content == 'unless') {
+                $condition = trim($this->next->getRecursiveContent());
+                $this->next->cancelAll();
+                $this->content = "if (! $condition)";
+            }
 
             return;
         }
@@ -1042,14 +1054,6 @@ class PpiTokenWord extends PpiToken
         // parent should be a statement object
         if (! ($this->parent instanceof PpiStatement)) {
             return;
-        }
-
-        // Go through the parent's children and generate the text for
-        // the left half and the right half.
-        foreach ($this->parent->children as $obj) {
-            if ($obj !== $this) {
-                $obj->genCode();
-            }
         }
 
         $indentAmt = $this->getIndent();
@@ -1091,7 +1095,7 @@ class PpiTokenWord extends PpiToken
         $leftText = preg_replace('/\s+/', ' ', $leftText);
 
         $indent = str_repeat(' ', $indentAmt);
-        $this->content = "$keyword $rightText {\n" .
+        $this->content = "if $rightText {\n" .
             "$indent    $leftText;\n" .
             "$indent}";
         return;
@@ -1114,7 +1118,7 @@ class PpiTokenWord extends PpiToken
             }
 
             if ($obj instanceof PpiStructureList ||
-                    $obj instanceof PpiStructureBlock || $obj->content == ';') {
+                    $obj instanceof PpiStructureBlock || $obj->isSemicolon()) {
                 break;              // Something went wrong
             }
         }
@@ -1131,7 +1135,7 @@ class PpiTokenWord extends PpiToken
                 break;
             }
 
-            if ($obj instanceof PpiStructureBlock || $obj->content == ';') {
+            if ($obj instanceof PpiStructureBlock || $obj->isSemicolon()) {
                 break;
             }
         }
@@ -1167,12 +1171,12 @@ class PpiTokenWord extends PpiToken
         // The next word is the argument and then just comment out
         // anything that follows.
         $obj = $this->next->next;
-        if ($obj->content != ';') {
+        if (! $obj->isSemicolon()) {
             $newObj = $obj->insertLeftText('/*');
             $newObj->preWs = $obj->preWs;
             $obj->preWs = '';
 
-            while ($obj->content != ';') {
+            while (! $obj->isSemicolon()) {
                 // Set to just leave contents alone
                 $obj->converted = true;
                 $obj = $obj->next;
