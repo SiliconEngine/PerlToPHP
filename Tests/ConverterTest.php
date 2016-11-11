@@ -519,6 +519,7 @@ PHP;
             [ 'perl' => 'uc', 'php' => 'strtoupper' ],
             [ 'perl' => 'lc', 'php' => 'strtolower' ],
             [ 'perl' => 'delete', 'php' => 'unset' ],
+            [ 'perl' => 'keys', 'php' => 'array_keys' ],
             [ 'perl' => 'defined', 'php' => '/*check*/isset' ],
         ];
 
@@ -541,6 +542,18 @@ PERL;
 
             $php = <<<"PHP"
                 \$a = \$b[{$func['php']}(\$c)];
+PHP;
+            $this->doConvertTest($perl, $php);
+
+            // Test multiple subscripts, like pop $var{stuff1}{stuff2}
+            $perl = <<<"PERL"
+                \$a = {$func['perl']} \$var{stuff1}{stuff2};
+                \$a = {$func['perl']} \$var[10][20];
+PERL;
+
+            $php = <<<"PHP"
+                \$a = {$func['php']}(\$var['stuff1']['stuff2']);
+                \$a = {$func['php']}(\$var[10][20]);
 PHP;
             $this->doConvertTest($perl, $php);
         }
@@ -595,6 +608,84 @@ PERL;
 PHP;
         $this->doConvertTest($perl, $php);
     }
+
+    /**
+     * use/require statement
+     */
+    public function testUseRequire()
+    {
+        // Simple use
+        $perl = <<<'PERL'
+            use Foo::Bar;
+PERL;
+
+        $php = <<<'PHP'
+            use Foo\Bar;
+PHP;
+        $this->doConvertTest($perl, $php);
+
+        // Simple require
+        $perl = <<<'PERL'
+            require Foo::Bar;
+PERL;
+
+        $php = <<<'PHP'
+            use Foo\Bar;
+PHP;
+        $this->doConvertTest($perl, $php);
+
+        // Use with stuff after it, just comment it out.
+        $perl = <<<'PERL'
+            use Foo::Bar qw(a b c);
+PERL;
+
+        $php = <<<'PHP'
+            use Foo\Bar /*qw(a b c)*/;
+PHP;
+        $this->doConvertTest($perl, $php);
+    }
+
+    /**
+     * goto - check for conversion of labels as reserved words
+     */
+    public function testGoto()
+    {
+        $perl = <<<'PERL'
+            goto EXIT;
+            print;
+EXIT:
+            print;
+PERL;
+
+        $php = <<<'PHP'
+            goto EXIT_LABEL;
+            print;
+EXIT_LABEL:
+            print;
+PHP;
+        $this->doConvertTest($perl, $php);
+    }
+
+    /**
+     * Test -e file exists operator
+     */
+    public function testFileExists()
+    {
+        $perl = <<<'PERL'
+            if (-e ($a . $b . '.def')) {
+                print;
+            }
+PERL;
+
+        $php = <<<'PHP'
+            if (file_exists(($a . $b . '.def'))) {
+                print;
+            }
+PHP;
+        $this->doConvertTest($perl, $php);
+    }
+
+
 
 
     /**

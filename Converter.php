@@ -207,7 +207,7 @@ class Converter
         if ($nl !== '') {
             // Add a whitespace token after this one.
 
-            $newObj = $this->copyNewClass($obj, 'PpiTokenNewline');
+            $newObj = self::copyNewClass($obj, 'PpiTokenNewline');
             $newObj->preWs = '';
             $newObj->content = "\n";
             $obj->insertRightSibling($newObj);
@@ -233,7 +233,7 @@ class Converter
         if ($nl !== '') {
             // Translate object to a PpiTokenNewline
 
-            $newObj = $this->copyNewClass($obj, 'PpiTokenNewline');
+            $newObj = self::copyNewClass($obj, 'PpiTokenNewline');
             $obj->insertRightSibling($newObj);
             $obj->delete();
 
@@ -297,21 +297,24 @@ class Converter
     /**
      * Create new node with different class and duplicate content.
      */
-    function copyNewClass(
+    static function copyNewClass(
         $obj,
-        $newClass)
+        $newClass,
+        $noContent = false)
     {
         $newObj = new $newClass;
 	$newObj->id = $obj->id;
 	$newObj->lineNum = $obj->lineNum;
 	$newObj->level = $obj->level;
 	$newObj->root = $obj->root;
-	$newObj->children = $obj->children;
-	$newObj->preWs = $obj->preWs;
-	$newObj->endPreWs = $obj->endPreWs;
-	$newObj->content = $obj->content;
-	$newObj->startContent = $obj->startContent;
-	$newObj->endContent = $obj->endContent;
+        if (! $noContent) {
+            $newObj->children = $obj->children;
+            $newObj->preWs = $obj->preWs;
+            $newObj->endPreWs = $obj->endPreWs;
+            $newObj->content = $obj->content;
+            $newObj->startContent = $obj->startContent;
+            $newObj->endContent = $obj->endContent;
+        }
         return $newObj;
     }
 

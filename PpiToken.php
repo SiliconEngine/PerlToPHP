@@ -24,7 +24,6 @@ class PpiTokenRegexpSubstitute extends PpiTokenRegexp { }
 class PpiTokenRegexpTransliterate extends PpiTokenRegexp { }
 class PpiTokenHereDoc extends PpiToken { }
 class PpiTokenStructure extends PpiToken { }
-class PpiTokenLabel extends PpiToken { }
 class PpiTokenSeparator extends PpiToken { }
 class PpiTokenData extends PpiToken { }
 class PpiTokenEnd extends PpiToken { }
@@ -50,6 +49,26 @@ class PpiToken extends PpiElement
         }
     }
 }
+
+
+/**
+ * Label
+ * Nothing to do except convert some unfortunate names that are reserved
+ * words in PHP.
+ */
+class PpiTokenLabel extends PpiToken
+{
+    function genCode()
+    {
+        if (! $this->converted) {
+            if ($this->content == 'EXIT:') {
+                $this->content = 'EXIT_LABEL:';
+            }
+        }
+        return parent::genCode();
+    }
+}
+
 
 class PpiTokenQuote extends PpiToken
 {
@@ -190,10 +209,23 @@ class PpiTokenOperator extends PpiToken
                 return $this->cvtRegEx(true);
             case 'x':
                 return $this->cvtStrRepeat();
+            case '-e':
+                return $this->cvtFileExists();
             }
         }
 
         return parent::genCode();
+    }
+
+    /**
+     * Convert -e (file exists) operator.
+     */
+    function cvtFileExists()
+    {
+        $obj = $this->next;
+        $expr = trim($obj->getRecursiveContent());
+        $this->content = "file_exists($expr)";
+        $obj->cancelAll();
     }
 
     function cvtRegEx($neg = false)
@@ -462,9 +494,9 @@ class PpiTokenSymbol extends PpiToken
 
             if (substr($varName, 0, 1) == '$') {
                 $this->content = $path . '$' .
-                    lcfirst($this->cvtCamelCase(substr($varName, 1)));
+                    $this->cvtCamelCase(substr($varName, 1));
             } else {
-                $this->content = $path . lcfirst($this->cvtCamelCase($varName));
+                $this->content = $path . $this->cvtCamelCase($varName);
             }
 
             // Translate special object reference name
@@ -496,6 +528,7 @@ class PpiTokenWord extends PpiToken
         case 'push':
         case 'split':
         case 'delete':
+        case 'keys':
             $this->setContextChain('array');
             break;
 
@@ -555,7 +588,7 @@ class PpiTokenWord extends PpiToken
             if (! $this->isReservedWord($word)) {
                 // Looks like some sort of function name or variable
 
-                $this->content = lcfirst($this->cvtCamelCase($word));
+                $this->content = $this->cvtCamelCase($word);
                 return parent::genCode();
             }
 
@@ -578,6 +611,9 @@ class PpiTokenWord extends PpiToken
                 case 'delete':
                     $this->convertWordWithArg('unset');
                     break;
+                case 'keys':
+                    $this->convertWordWithArg('array_keys');
+                    break;
                 case 'unshift':
                     $this->content = 'array_unshift';
                     break;
@@ -592,7 +628,8 @@ class PpiTokenWord extends PpiToken
                     break;
                 case 'sub':         $this->tokenWordSub();          break;
                 case 'package':     $this->tokenWordPackage();      break;
-                case 'require':     $this->content = 'use';         break;
+                case 'require':     $this->tokenWordUse();          break;
+                case 'use':         $this->tokenWordUse();          break;
                 case 'elsif':       $this->content = 'elseif';      break;
                 case 'foreach':     $this->tokenWordForeach();      break;
                 case 'if':
@@ -604,6 +641,9 @@ class PpiTokenWord extends PpiToken
                 case 'STDERR':
                 case 'local':
                     $this->killContentAndWs();
+                    break;
+                case 'goto':
+                    $this->tokenWordGoto(true, 'if');
                     break;
                 }
             } else {
@@ -641,7 +681,7 @@ class PpiTokenWord extends PpiToken
 
             // Get the name of the function
             $tokens = $this->peekAhead(2, [ 'skip_ws' => true ]);
-            $name = lcfirst($this->cvtCamelCase($tokens[0]->content));
+            $name = $this->cvtCamelCase($tokens[0]->content);
             $tokens[0]->cancel();
             $argList = [];
 
@@ -767,7 +807,8 @@ class PpiTokenWord extends PpiToken
         if (! empty($ns)) {
             $this->content .= "namespace $ns;\n\n";
         }
-        $this->content .= "class " . $this->cvtCamelCase($className) . "\n{";
+        $this->content .= "class " . ucfirst($this->cvtCamelCase($className)) .
+            "\n{";
 
         // Put a closing brace at end of file
         $this->root->endContent = "}\n";
@@ -865,7 +906,6 @@ class PpiTokenWord extends PpiToken
             $obj = $obj->next;
         }
 
-        print Converter::dumpStruct($this->root);
         // Test if we can use faster explode
         if ($obj instanceof PpiTokenQuote) {
             $pattern = $obj->content;
@@ -884,11 +924,27 @@ class PpiTokenWord extends PpiToken
     {
         $this->content = $newWord;
         $obj = $this->next;
-        if (! ($obj instanceof PpiStructure)) {
+        // Check for parenthesis
+        if (! ($obj instanceof PpiStructureList)) {
             $obj->preWs = '';
             $code = $obj->getRecursiveContent();
-            $this->content = "$newWord($code)";
             $obj->cancelAll();
+
+            // See if we have a subscript following a word
+            if ($obj instanceof PpiTokenSymbol) {
+                for(;;) {
+                    $obj = $obj->nextSibling;
+                    if ($obj === null ||
+                            ! $obj instanceof PpiStructureSubscript) {
+                        break;
+                    }
+
+                    $code .= $obj->getRecursiveContent();
+                    $obj->cancelAll();
+                }
+            }
+
+            $this->content = "$newWord($code)";
         }
 
         return;
@@ -1047,6 +1103,45 @@ class PpiTokenWord extends PpiToken
 
         $this->content = "foreach ($exprText as $var)";
         return;
+    }
+
+    /**
+     * Use / Require
+     */
+    private function tokenWordUse()
+    {
+        $this->content = 'use';
+
+        // The next word is the argument and then just comment out
+        // anything that follows.
+        $obj = $this->next->next;
+        if ($obj->content != ';') {
+            $newObj = $obj->insertLeftText('/*');
+            $newObj->preWs = $obj->preWs;
+            $obj->preWs = '';
+
+            while ($obj->content != ';') {
+                // Set to just leave contents alone
+                $obj->converted = true;
+                $obj = $obj->next;
+            }
+            $obj->insertLeftText('*/');
+        }
+
+        return;
+    }
+
+    /**
+     * goto
+     * Don't need to do much to this, except there are some unfortunate
+     * cases where goto labels are reserved words in PHP.
+     */
+    private function tokenWordGoto()
+    {
+        $label = $this->next;
+        if ($label->content = 'EXIT') {
+            $label->content = 'EXIT_LABEL';
+        }
     }
 
 }

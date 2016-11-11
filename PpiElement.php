@@ -15,6 +15,7 @@ class PpiElement
     public $prev;
     public $nextSibling;
     public $prevSibling;
+    public $converter;                  // Main converter object
 
     public $preWs = '';                 // Whitespace preceding token
     public $endPreWs = '';              // Whitespace preceding end content
@@ -452,7 +453,8 @@ repeat:
     }
 
     /**
-     * Convert underscored name to CamelCase.
+     * Convert underscored name to CamelCase. First character is set to lower
+     * case. If all uppercase, then is preserved that way.
      */
     public function cvtCamelCase(
         $name)
@@ -462,9 +464,14 @@ repeat:
             return $name;
         }
 
+        // If all uppercase, leave it alone
+        if (strtoupper($name) == $name) {
+            return $name;
+        }
+
         if (strpos($name, '_') !== false) {
-            return str_replace(' ', '', ucwords(str_replace('_', ' ',
-                strtolower($name))));
+            return lcfirst(str_replace(' ', '', ucwords(str_replace('_', ' ',
+                strtolower($name)))));
         }
 
         // If no underscores, just leave it alone.
@@ -590,6 +597,65 @@ repeat:
         $newObj->parent = $parent;
 
         return;
+    }
+
+    /**
+     * Add passed object as our sibling on the left.
+     */
+    function insertLeftSibling(
+        $newObj)
+    {
+        $curPrev = $this->prev;
+        $this->prev = $newObj;
+        $newObj->next = $this;
+        if ($curPrev !== null) {
+            $curPrev->next = $newObj;
+            $newObj->prev = $curPrev;
+        }
+
+        $curPrev = $this->prevSibling;
+        $this->prevSibling = $newObj;
+        $newObj->nextSibling = $this;
+        if ($curPrev !== null) {
+            $curPrev->nextSibling = $newObj;
+            $newObj->prevSibling = $curPrev;
+        }
+
+        // Insert into parent's child list
+        $parent = $this->parent;
+        for ($i = 0; $i < count($parent->children); ++$i) {
+            if ($parent->children[$i] === $this) {
+                array_splice($parent->children, $i, 0, [$newObj]);
+                break;
+            }
+        }
+        $newObj->parent = $parent;
+
+        return;
+    }
+
+    /**
+     * Insert text to the left of the token.
+     */
+    public function insertLeftText(
+        $text)
+    {
+        $obj = Converter::copyNewClass($this, 'PpiToken', true);
+        $obj->content = $text;
+        $this->insertLeftSibling($obj);
+        return $obj;
+    }
+
+    /**
+     * Insert text to the right of the token.
+     */
+    public function insertRightText(
+        $text)
+    {
+        $obj = Converter::copyNewClass($this, 'PpiToken', true);
+        $obj->content = $text;
+        $this->insertRightSibling($obj);
+        return $obj;
     }
 
     /**
