@@ -209,7 +209,7 @@ class PpiElement
 
         $obj = $this;
         $list = [];
-        for(;;) {
+        do {
 repeat:
             $obj = $obj->next;
             if ($obj === null) {
@@ -240,7 +240,7 @@ repeat:
 
         $obj = $this;
         $list = [];
-        for(;;) {
+        do {
 repeat:
             $obj = $obj->prev;
             if ($obj === null) {
