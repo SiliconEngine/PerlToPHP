@@ -9,7 +9,6 @@ class PpiTokenNumberFloat extends PpiTokenNumber { }
 class PpiTokenNumberExp extends PpiTokenNumberFloat { }
 class PpiTokenNumberVersion extends PpiTokenNumber { }
 class PpiTokenDashedWord extends PpiToken { }
-class PpiTokenArrayIndex extends PpiToken { }
 class PpiTokenQuoteSingle extends PpiTokenQuote { }
 class PpiTokenQuoteDouble extends PpiTokenQuote { }
 class PpiTokenQuoteLiteral extends PpiTokenQuote { }
@@ -49,11 +48,29 @@ class PpiToken extends PpiElement
     }
 }
 
+/**
+ * Special count syntax like "#$var"
+ */
+class PpiTokenArrayIndex extends PpiTokenSymbol
+{
+    function genCode()
+    {
+        if (! $this->converted) {
+            if (substr($this->content, 0, 2) != '$#') {
+                print "Unknown array index syntax: {$this->content}\n";
+                exit(1);
+            }
+
+            $var = '$' . substr($this->content, 2);
+            $this->content = "/*check*/(count($var)-1)";
+        }
+        return parent::genCode();
+    }
+}
 
 /**
  * "Magic" token (special variables)
  */
-
 class PpiTokenMagic extends PpiTokenSymbol
 {
     function genCode()
@@ -161,6 +178,9 @@ class PpiTokenCast extends PpiToken
         case '\\':
             $this->setContextChain('neutral');
             break;
+        case '$#':
+            $this->setContextChain('neutral');
+            break;
         default:
             print "unknown cast: {$this->content}, line {$this->lineNum}\n";
             exit(0);
@@ -178,12 +198,16 @@ class PpiTokenCast extends PpiToken
             // Now have context, so we try and do the right thing.
 
             $next = $this->next;
-            if ($this->content == '@' && $next instanceof PpiStructureBlock) {
-                $next->startContent = "/* {$next->startContent} */";
-                $next->endContent = "/* {$next->endContent} */";
+            $text = '';
+            if (($this->content == '@' || $this->content == '$#')
+                        && $next instanceof PpiStructureBlock) {
+                // Just comment out expression
+                $text = $this->next->getRecursiveContent();
+                $this->next->cancelAll();
+                $text = "\$fake/*$text*/";
             }
 
-            $this->content = "/*check:{$this->content}*/";
+            $this->content = "/*check:{$this->content}*/$text";
         }
         return parent::genCode();
     }

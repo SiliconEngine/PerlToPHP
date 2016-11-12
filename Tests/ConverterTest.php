@@ -825,10 +825,26 @@ PHP;
         $this->doConvertTest($perl, $php, [ 'no_func' => true ]);
     }
 
+    /**
+     * Check scalar count expressions (@$, $#)
+     */
+    public function test()
+    {
+        $perl = <<<'PERL'
+            $var = @$list;
+            $var = @{$list};
+            $var = $#list;
+            $var = $#{$list};
+PERL;
 
-
-
-
+        $php = <<<'PHP'
+            $var = /*check:@*/$list;
+            $var = /*check:@*/$fake/*{$list}*/;
+            $var = /*check*/(count($list)-1);
+            $var = /*check:$#*/$fake/*{$list}*/;
+PHP;
+        $this->doConvertTest($perl, $php);
+    }
 
     /**
      * Template for new tests
