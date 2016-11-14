@@ -198,7 +198,7 @@ PHP;
 PERL;
 
         $php = <<<'PHP'
-    foreach (/*check:@*/$b as $a) {
+    foreach ($b as $a) {
         print $a;
     }        
 PHP;
@@ -578,10 +578,12 @@ PHP;
     {
         $perl = <<<'PERL'
             $a = func(shift);
+            $b = shift;
 PERL;
 
         $php = <<<'PHP'
             $a = func($fake/*check:shift*/);
+            $b = $fake/*check:shift*/;
 PHP;
         $this->doConvertTest($perl, $php);
     }
@@ -838,13 +840,68 @@ PHP;
 PERL;
 
         $php = <<<'PHP'
-            $var = /*check:@*/$list;
-            $var = /*check:@*/$fake/*{$list}*/;
-            $var = /*check*/(count($list)-1);
-            $var = /*check:$#*/$fake/*{$list}*/;
+            $var = count($list);
+            $var = count($list);
+            $var = (count($list)-1);
+            $var = (count($list)-1);
 PHP;
         $this->doConvertTest($perl, $php);
     }
+
+    /**
+     * Comment out special variable assignments
+     */
+    public function testSpecialVarComment()
+    {
+        $perl = <<<'PERL'
+            @ISA = [ 'Exporter' ];
+            @EXPORT = [ 'TestFile' ];
+PERL;
+
+        $php = <<<'PHP'
+            //@ISA = [ 'Exporter' ];
+            //@EXPORT = [ 'TestFile' ];
+PHP;
+        $this->doConvertTest($perl, $php);
+    }
+
+    /**
+     * Check for replacements in strings that are in initializers
+     */
+    public function checkInitStringReplace()
+    {
+        $perl = <<<'PERL'
+            namespace stuff;
+            my $var = "test $replace test";
+PERL;
+
+        $php = <<<'PHP'
+            class stuff {
+            private $var = "test $/*check*/replace test";
+            }
+PHP;
+        $this->doConvertTest($perl, $php);
+    }
+
+    /**
+     * Test '@' casting
+     */
+    public function testArrayCast()
+    {
+        $perl = <<<'PERL'
+            @a = @$b;
+            @a = @{$b};
+            @a = @{['a', 'b', 'c']};
+PERL;
+
+        $php = <<<'PHP'
+            $a = $b;
+            $a = ($b);
+            $a = (['a', 'b', 'c']);
+PHP;
+        $this->doConvertTest($perl, $php);
+    }
+
 
     /**
      * Template for new tests

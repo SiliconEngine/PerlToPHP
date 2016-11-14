@@ -99,6 +99,7 @@ class PpiStructureList extends PpiStructure
         //      4) Scan backward by sibling rather than up to parent for
         //          context.
         //      5) Special: 'return' is array if has a comma (chk in 'return')
+        //      6) Special: foreach $a (@$b)
         //
         // TESTS:
         //    @a = (1 + 2, 3)
@@ -117,6 +118,13 @@ class PpiStructureList extends PpiStructure
                 $node = $node->parent;
             } else {
                 $node = $node->prevSibling;
+            }
+
+            if ($node instanceof PpiTokenSymbol
+                        && $node->prev instanceof PpiTokenWord
+                        && $node->prev->content == 'foreach') {
+                $context = 'array';
+                break;
             }
 
             if ($node === null || $node->isNewline()) {
@@ -185,7 +193,7 @@ class PpiStructureList extends PpiStructure
             }
 
             // If array context, convert to brackets
-            if ($this->context == 'array') {
+            if (in_array($this->context, ['array', 'hash'])) {
                 $this->startContent = '[';
                 $this->endContent = ']';
             }

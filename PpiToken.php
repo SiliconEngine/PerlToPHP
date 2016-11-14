@@ -10,7 +10,6 @@ class PpiTokenNumberExp extends PpiTokenNumberFloat { }
 class PpiTokenNumberVersion extends PpiTokenNumber { }
 class PpiTokenDashedWord extends PpiToken { }
 class PpiTokenQuoteSingle extends PpiTokenQuote { }
-class PpiTokenQuoteDouble extends PpiTokenQuote { }
 class PpiTokenQuoteLiteral extends PpiTokenQuote { }
 class PpiTokenQuoteLike extends PpiToken { }
 class PpiTokenQuoteLikeBacktick extends PpiTokenQuoteLike { }
@@ -48,8 +47,26 @@ class PpiToken extends PpiElement
     }
 }
 
+class PpiTokenQuoteDouble extends PpiTokenQuote
+{
+    function genCode()
+    {
+        if (! $this->converted) {
+            // If not within a subroutine, probably within class. Check if there
+            // are replacements in string, which we can't do in an initializer.
+            if (! $this->isWithinSub()) {
+                $this->content = str_replace('$', '$/*check*/', $this->content);
+            }
+        }
+
+        return parent::genCode();
+    }
+
+}
+
+
 /**
- * Special count syntax like "#$var"
+ * Special count syntax like "$#var"
  */
 class PpiTokenArrayIndex extends PpiTokenSymbol
 {
@@ -62,7 +79,7 @@ class PpiTokenArrayIndex extends PpiTokenSymbol
             }
 
             $var = '$' . substr($this->content, 2);
-            $this->content = "/*check*/(count($var)-1)";
+            $this->content = "(count($var)-1)";
         }
         return parent::genCode();
     }
@@ -170,7 +187,8 @@ class PpiTokenCast extends PpiToken
     {
         switch ($this->content) {
         case '@':
-            $this->setContextChain('array');
+            // Might be scalar or array
+            $this->setContext($this->prev->context);
             break;
         case '%':
             $this->setContextChain('hash');
@@ -179,7 +197,7 @@ class PpiTokenCast extends PpiToken
             $this->setContextChain('neutral');
             break;
         case '$#':
-            $this->setContextChain('neutral');
+            $this->setContextChain('scalar');
             break;
         default:
             print "unknown cast: {$this->content}, line {$this->lineNum}\n";
@@ -191,23 +209,57 @@ class PpiTokenCast extends PpiToken
     function genCode()
     {
         if (! $this->converted) {
-            // Can't really convert casts like "@$abc" unless you know
-            // the context, because it might need to be "count($abc)".
-            // Better to check these manually.
-            // Might do some unambiguous cases here later.
-            // Now have context, so we try and do the right thing.
+            switch ($this->content) {
+            case '$#':          // count() - 1
+            case '@':
+                $needMinus = $this->content == '$#';
 
-            $next = $this->next;
-            $text = '';
-            if (($this->content == '@' || $this->content == '$#')
-                        && $next instanceof PpiStructureBlock) {
-                // Just comment out expression
-                $text = $this->next->getRecursiveContent();
-                $this->next->cancelAll();
-                $text = "\$fake/*$text*/";
+                // Need to check context to see if this is a cast-to-array or
+                // it's a count of an array.
+                $next = $this->next;
+                if ($this->context == 'scalar') {
+                    // Convert to count expression
+
+                    $text = '';
+                    if ($next instanceof PpiStructureBlock) {
+                        // Something like @{expression}
+
+                        $text = $this->next->getRecursiveContent();
+                        $this->next->cancelAll();
+                        $this->content = "count(" . substr($text, 1, -1) . ")";
+
+                    } elseif ($next instanceof PpiTokenSymbol) {
+                        // Something like @$a
+
+                        $this->content = "count({$next->content})";
+                        $next->cancel();
+                    } else {
+                        print "Unknown cast following type: " .
+                            get_class($next) . "\n";
+                        exit(1);
+                    }
+
+                    if ($needMinus) {
+                        $this->content = "({$this->content}-1)";
+                    }
+
+                } else {
+                    // Array context, just remove the cast
+
+                    $this->content = '';
+                    if ($next instanceof PpiStructureBlock) {
+                        // Change to parentheses
+                        $next->startContent = '(';
+                        $next->endContent = ')';
+                        $next->converted = true;
+                    }
+                }
+                break;
+
+            default:
+                $this->content = "/*check:{$this->content}*/";
+                break;
             }
-
-            $this->content = "/*check:{$this->content}*/$text";
         }
         return parent::genCode();
     }
@@ -527,10 +579,10 @@ class PpiTokenSymbol extends PpiToken
                 break;
 
             case '@':
-                if ($varName == '@ISA') {
-                    // Special case of @ISA and just comment out
+                if ($varName == '@ISA' || $varName == '@EXPORT') {
+                    // Special case, just comment out
 
-                    $varName = '//@ISA';
+                    $varName = "//{$varName}";
                 } else {
                     // Array, change to normal variable
 
@@ -1029,7 +1081,8 @@ class PpiTokenWord extends PpiToken
     private function convertWordWithArg($newWord)
     {
         // Check for case like "$a = func(shift);". Just mark it.
-        if ($this->nextSibling === null) {
+        // Or case like = shift;
+        if ($this->nextSibling === null || $this->next->isSemicolon()) {
             $this->content = "\$fake/*check:{$this->content}*/";
             return;
         }
@@ -1161,58 +1214,27 @@ class PpiTokenWord extends PpiToken
      */
     private function tokenWordForeach()
     {
-        $needSwitch = false;
-        $obj = $this;
+        // Next token should be the variable
+        $obj = $this->next;
+        if (! ($obj instanceof PpiTokenSymbol)) {
+            print "Foreach invalid variable token: " . get_class($obj) .
+                "content: {$obj->content}\n";
+            exit(1);
+        }
+        $var = $obj->content;
+        $obj->cancel();
 
-        // First find the variable
-        $var = null;
-        while (($obj = $obj->next) !== null) {
-            if ($obj instanceof PpiTokenSymbol) {
-                $var = $obj->genCode();
-                break;
-            }
-
-            if ($obj instanceof PpiStructureList ||
-                    $obj instanceof PpiStructureBlock || $obj->isSemicolon()) {
-                break;              // Something went wrong
-            }
+        // Next is expression in parenthesis
+        $obj = $obj->next;
+        if (! ($obj instanceof PpiStructureList)) {
+            print "Foreach invalid expression token: " . get_class($obj) .
+                "content: {$obj->content}\n";
+            exit(1);
         }
 
-        if ($var === null) {
-            return;
-        }
-
-        // Look for the expression in parenthesis
-        $exprObj = null;
-        while (($obj = $obj->next) !== null) {
-            if ($obj instanceof PpiStructureList) {
-                $exprObj = $obj;
-                break;
-            }
-
-            if ($obj instanceof PpiStructureBlock || $obj->isSemicolon()) {
-                break;
-            }
-        }
-
-        if ($exprObj === null) {
-            return;
-        }
-
-        // Accumulate text of children, which is the expression
-        foreach ($exprObj->children as $obj) {
-            $obj->genCode();
-        }
-
-        $exprText = '';
-        foreach ($exprObj->children as $obj) {
-            $exprText .= $obj->getRecursiveContent();
-        }
-        $exprText = trim($exprText);
-
-        $this->next->cancelUntil($exprObj->getLastLeaf());
-
-        $this->content = "foreach ($exprText as $var)";
+        $expr = $obj->next->getRecursiveContent();
+        $obj->cancelAll();
+        $this->content = "foreach ($expr as $var)";
         return;
     }
 
