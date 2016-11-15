@@ -1214,8 +1214,14 @@ class PpiTokenWord extends PpiToken
      */
     private function tokenWordForeach()
     {
-        // Next token should be the variable
+        // Skip possible 'my' of the variable
         $obj = $this->next;
+        if ($obj->content == 'my') {
+            $obj->cancel();
+            $obj = $obj->next;
+        }
+
+        // Next token should be the variable
         if (! ($obj instanceof PpiTokenSymbol)) {
             print "Foreach invalid variable token: " . get_class($obj) .
                 "content: {$obj->content}\n";

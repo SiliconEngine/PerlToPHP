@@ -120,11 +120,13 @@ class PpiStructureList extends PpiStructure
                 $node = $node->prevSibling;
             }
 
-            if ($node instanceof PpiTokenSymbol
-                        && $node->prev instanceof PpiTokenWord
-                        && $node->prev->content == 'foreach') {
-                $context = 'array';
-                break;
+            if ($node instanceof PpiTokenSymbol) {
+                $firstChild = $node->parent->children[0];
+                if ($firstChild instanceof PpiTokenWord
+                        && $firstChild->content == 'foreach') {
+                    $context = 'array';
+                    break;
+                }
             }
 
             if ($node === null || $node->isNewline()) {

@@ -176,31 +176,43 @@ PHP;
     public function testForeach1()
     {
         $perl = <<<'PERL'
-    foreach $a (@b) {
-        print $a;
-    }        
+            foreach $a (@b) {
+                print $a;
+            }        
 PERL;
 
         $php = <<<'PHP'
-    foreach ($b as $a) {
-        print $a;
-    }        
+            foreach ($b as $a) {
+                print $a;
+            }        
 PHP;
         $this->doConvertTest($perl, $php);
-    }
 
-    public function testForeach2()
-    {
+        // Test with cast
         $perl = <<<'PERL'
-    foreach $a (@$b) {
-        print $a;
-    }        
+            foreach $a (@$b) {
+                print $a;
+            }        
 PERL;
 
         $php = <<<'PHP'
-    foreach ($b as $a) {
-        print $a;
-    }        
+            foreach ($b as $a) {
+                print $a;
+            }        
+PHP;
+        $this->doConvertTest($perl, $php);
+
+        // Test with 'my'
+        $perl = <<<'PERL'
+            foreach my $a (@$b) {
+                print $a;
+            }        
+PERL;
+
+        $php = <<<'PHP'
+            foreach ($b as $a) {
+                print $a;
+            }        
 PHP;
         $this->doConvertTest($perl, $php);
     }
