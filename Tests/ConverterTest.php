@@ -530,10 +530,10 @@ PHP;
     }
 
     /**
-     * Test monadic function that can be used without parenthesis
+     * Test monadic array functions that can be used without parenthesis
      * (Example: $a = pop $b)
      */
-    public function testFuncConvert()
+    public function testMonadicArray()
     {
         $list = [
             [ 'perl' => 'lc', 'php' => 'strtolower' ],
@@ -544,7 +544,6 @@ PHP;
             [ 'perl' => 'lc', 'php' => 'strtolower' ],
             [ 'perl' => 'delete', 'php' => 'unset' ],
             [ 'perl' => 'keys', 'php' => 'array_keys' ],
-            [ 'perl' => 'defined', 'php' => '/*check*/isset' ],
         ];
 
         foreach ($list as $func) {
@@ -552,9 +551,11 @@ PHP;
             // Test straightforward
             $perl = <<<"PERL"
                 \$a = {$func['perl']} \$b;
+                \$a = {$func['perl']} @\$b;
 PERL;
 
             $php = <<<"PHP"
+                \$a = {$func['php']}(\$b);
                 \$a = {$func['php']}(\$b);
 PHP;
             $this->doConvertTest($perl, $php);
@@ -576,6 +577,38 @@ PHP;
 PERL;
 
             $php = <<<"PHP"
+                \$a = {$func['php']}(\$var['stuff1']['stuff2']);
+                \$a = {$func['php']}(\$var[10][20]);
+PHP;
+            $this->doConvertTest($perl, $php);
+        }
+    }
+
+    /**
+     * Test monadic scalar functions that can be used without parenthesis
+     * (Example: $a = pop $b)
+     */
+    public function testMonadicScalar()
+    {
+        $list = [
+            [ 'perl' => 'defined', 'php' => '/*check*/isset' ],
+        ];
+
+        foreach ($list as $func) {
+
+            // Test straightforward
+            // Test as an index, like $a = $b[pop $c];
+            // Test multiple subscripts, like pop $var{stuff1}{stuff2}
+            $perl = <<<"PERL"
+                \$a = {$func['perl']} \$b;
+                \$a = \$b[{$func['perl']} \$c];
+                \$a = {$func['perl']} \$var{stuff1}{stuff2};
+                \$a = {$func['perl']} \$var[10][20];
+PERL;
+
+            $php = <<<"PHP"
+                \$a = {$func['php']}(\$b);
+                \$a = \$b[{$func['php']}(\$c)];
                 \$a = {$func['php']}(\$var['stuff1']['stuff2']);
                 \$a = {$func['php']}(\$var[10][20]);
 PHP;
@@ -908,12 +941,11 @@ PERL;
 
         $php = <<<'PHP'
             $a = $b;
-            $a = ($b);
+            $a = $b;
             $a = (['a', 'b', 'c']);
 PHP;
         $this->doConvertTest($perl, $php);
     }
-
 
     /**
      * Template for new tests

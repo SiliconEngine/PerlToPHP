@@ -248,10 +248,18 @@ class PpiTokenCast extends PpiToken
 
                     $this->content = '';
                     if ($next instanceof PpiStructureBlock) {
-                        // Change to parentheses
-                        $next->startContent = '(';
-                        $next->endContent = ')';
+                        // Change to parentheses, unless it's just a single
+                        // word in the interior.
+
+                        $text = $next->getRecursiveContent();
                         $next->converted = true;
+                        if (preg_match('/\{\$\w+\}/', $text)) {
+                            $next->cancel();
+                        } else {
+                            $next->startContent = '(';
+                            $next->endContent = ')';
+                            $next->converted = true;
+                        }
                     }
                 }
                 break;
@@ -1076,7 +1084,7 @@ class PpiTokenWord extends PpiToken
     }
 
     /**
-     * Check for things like "= pop @x"
+     * Check for things like "pop @x"
      */
     private function convertWordWithArg($newWord)
     {
@@ -1089,8 +1097,18 @@ class PpiTokenWord extends PpiToken
 
         $this->content = $newWord;
         $obj = $this->next;
-        // Check for parentheses
+
+        // If next token is a cast, we probably have something like
+        // pop @$x;
+        if ($obj->content == '@') {
+            $t = $obj->getRecursiveContent();
+            $obj->cancel();
+            $obj = $obj->next;
+        }
+
+        // Check for no parentheses
         if (! ($obj instanceof PpiStructureList)) {
+
             $obj->preWs = '';
             $code = $obj->getRecursiveContent();
             $obj->cancelAll();
