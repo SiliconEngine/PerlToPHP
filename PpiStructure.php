@@ -252,7 +252,13 @@ class PpiStructureSubscript extends PpiStructure
 {
     public function anaContext()
     {
-        $this->setContextChain('array');
+        if ($this->prev instanceof PpiTokenSymbol
+                        || $this->prev->content == '->') {
+            // Hash subscript
+            $this->setContextChain('scalar');
+        } else {
+            $this->setContextChain('array');
+        }
     }
 
     public function genCode()

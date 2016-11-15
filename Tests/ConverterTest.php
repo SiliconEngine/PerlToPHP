@@ -948,6 +948,47 @@ PHP;
     }
 
     /**
+     * Testing commenting out warning directives
+     */
+    public function testWarningDirectives()
+    {
+        $perl = <<<'PERL'
+            no warnings qw(uninitialized);
+            use warnings qw(uninitialized);
+PERL;
+
+        $php = <<<'PHP'
+            //no warnings qw(uninitialized);
+            //use warnings qw(uninitialized);
+PHP;
+        $this->doConvertTest($perl, $php);
+    }
+
+    /**
+     * Test hash subscripts
+     */
+    public function testHashSubscript()
+    {
+        $perl = <<<'PERL'
+            $a = $b{hash};
+            $a = $b{'hash'};
+            $a = $b->{hash};
+            $a = $b->{'hash'};
+            $a = ($b->{'hash'} + $b{hash});
+PERL;
+
+        $php = <<<'PHP'
+            $a = $b['hash'];
+            $a = $b['hash'];
+            $a = $b['hash'];
+            $a = $b['hash'];
+            $a = ($b['hash'] + $b['hash']);
+PHP;
+        $this->doConvertTest($perl, $php);
+    }
+
+
+    /**
      * Template for new tests
      */
     public function name()
