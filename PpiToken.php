@@ -730,6 +730,7 @@ class PpiTokenWord extends PpiToken
                 // Check for bareword hash index. Sibling should be null,
                 // which means word is by itself.
                 if ($this->parent->parent instanceof PpiStructureSubscript
+                        && $this->prevSibling === null
                         && $this->nextSibling === null) {
                     return $this->quoteBareWord();
                 }
@@ -1095,42 +1096,70 @@ class PpiTokenWord extends PpiToken
             return;
         }
 
-        $this->content = $newWord;
-        $obj = $this->next;
-
-        // If next token is a cast, we probably have something like
-        // pop @$x;
-        if ($obj->content == '@') {
-            $t = $obj->getRecursiveContent();
-            $obj->cancel();
-            $obj = $obj->next;
+        // If has parentheses, don't need to do anything
+        if ($this->next instanceof PpiStructureList) {
+            return;
         }
 
-        // Check for no parentheses
-        if (! ($obj instanceof PpiStructureList)) {
+        // Otherwise suck up tokens that collect with themselves, like:
+        // $a = pop $x{abc}{def};
 
-            $obj->preWs = '';
-            $code = $obj->getRecursiveContent();
-            $obj->cancelAll();
-
-            // See if we have a subscript following a word
-            if ($obj instanceof PpiTokenSymbol) {
-                for(;;) {
-                    $obj = $obj->nextSibling;
-                    if ($obj === null ||
-                            ! $obj instanceof PpiStructureSubscript) {
-                        break;
-                    }
-
-                    $code .= $obj->getRecursiveContent();
-                    $obj->cancelAll();
-                }
+        $obj = $this;
+        $code = '';
+        for(;;) {
+            $obj = $obj->nextSibling;
+            if ($obj === null || ! ($obj->content == '@'
+                    || $obj instanceof PpiTokenSymbol
+                    || $obj instanceof PpiTokenWord
+                    || $obj instanceof PpiStructure)) {
+                break;
             }
 
-            $this->content = "$newWord($code)";
+            $code .= $obj->getRecursiveContent();
+            $obj->cancelAll();
         }
 
+        $this->content = "$newWord(" . trim($code) . ")";
         return;
+
+
+
+
+
+//        $this->content = $newWord;
+//        $obj = $this->next;
+//        // If next token is a cast, we probably have something like
+//        // pop @$x;
+//        if ($obj->content == '@') {
+//            $t = $obj->getRecursiveContent();
+//            $obj->cancel();
+//            $obj = $obj->next;
+//        }
+//
+//        // Check for no parentheses
+//        if (! ($obj instanceof PpiStructureList)) {
+//
+//            $obj->preWs = '';
+//            $code = $obj->getRecursiveContent();
+//            $obj->cancelAll();
+//
+//            // See if we have a subscript following a word
+//            if ($obj instanceof PpiTokenSymbol) {
+//                for(;;) {
+//                    $obj = $obj->nextSibling;
+//                    if ($obj === null ||
+//                            ! $obj instanceof PpiStructureSubscript) {
+//                        break;
+//                    }
+//
+//                    $code .= $obj->getRecursiveContent();
+//                    $obj->cancelAll();
+//                }
+//            }
+//
+//            $this->content = "$newWord($code)";
+//        }
+//        return;
     }
 
     /**

@@ -987,6 +987,38 @@ PHP;
         $this->doConvertTest($perl, $php);
     }
 
+    /**
+     * Empty function method bareword inside subscript
+     */
+    public function testFunctionMethodInSubscript()
+    {
+        $perl = <<<'PERL'
+            $a = $b[ $c->function ];
+PERL;
+
+        $php = <<<'PHP'
+            $a = $b[ $c->function ];
+PHP;
+        $this->doConvertTest($perl, $php);
+    }
+
+    /**
+     * Test multiple subscripts with function and no parentheses
+     */
+    public function testComplexSubscript()
+    {
+        $perl = <<<'PERL'
+                $var = uc func($a[$rq->{test}]);
+                $var = uc func($a[$rq->{test}])[10]{'abc'};
+PERL;
+
+        $php = <<<'PHP'
+                $var = strtoupper(func($a[$rq['test']]));
+                $var = strtoupper(func($a[$rq['test']])[10]{'abc'});
+PHP;
+        $this->doConvertTest($perl, $php);
+    }
+
 
     /**
      * Template for new tests
