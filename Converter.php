@@ -134,6 +134,9 @@ class Converter
                 }
                 $obj->prev = $lastObj;
 
+                // Set expression precedence in object
+                $obj->setPrecedence();
+
                 $lastObj = $obj;
 
             } else {

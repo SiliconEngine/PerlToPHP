@@ -8,6 +8,7 @@ class PpiElement
     public $id;
     public $lineNum;
     public $level;
+    public $precedence;                 // Token expression precedence
     public $root;
     public $parent;
     public $children = [];
@@ -48,7 +49,8 @@ class PpiElement
         22 => [ 'not' ],
         23 => [ 'and' ],
         24 => [ 'or', 'xor' ],
-        25 => [ ';' ],
+        25 => [ 'if', 'until' ],
+        30 => [ ';' ]
     ];
 
     /**
@@ -150,6 +152,16 @@ class PpiElement
         return $s;
     }
 
+    /**
+     * Call converter for node and all children.
+     */
+    public function callRecursiveConverters()
+    {
+        $this->genCode();
+        foreach ($this->children as $child) {
+            $child->callRecursiveConverters();
+        }
+    }
 
     /**
      * Cancel this element from generating data
@@ -731,6 +743,14 @@ repeat:
     }
 
     /**
+     * Set expression precedence for token into internal variable.
+     */
+    public function setPrecedence()
+    {
+        $this->precedence = $this->getPrecedence();
+    }
+
+    /**
      * Get expression precedence for token
      */
     public function getPrecedence()
@@ -746,14 +766,14 @@ repeat:
             }
         }
 
+        $token = $this->startContent ?: $this->content;
         if ($this instanceof PpiTokenRegexp) {
             $token = '//';
-        } elseif (preg_match('/^-{0,1}\w+$/', $this->content)) {
+        } elseif (! isset($oprPrec[$token])
+                    && preg_match('/^-{0,1}\w+$/', $this->content)) {
             // Bareword, possible function
 
             $token = 'named_unary_operators';
-        } else {
-            $token = $this->startContent ?: $this->content;
         }
         return isset($oprPrec[$token]) ? $oprPrec[$token] : 0;
     }
@@ -765,7 +785,10 @@ repeat:
     function getLeftArg(
         $options = [])
     {
-        $prec = $this->getPrecedence();
+//print "({$this->content}) LEFT THIS: {$this->fmtObj()}\n";
+//print Converter::dumpStruct($this->root);
+        $prec = $this->precedence;
+//print "({$this->content}) LEFT PREC: $prec\n";
         $noCancel = ! empty($options['no_cancel']);
         $noTrim = ! empty($options['no_trim']);
 
@@ -777,22 +800,33 @@ repeat:
         }
 
         while ($scan->prevSibling !== null
-                        && $scan->prevSibling->getPrecedence() <= $prec) {
+                        && $scan->prevSibling->precedence <= $prec) {
+//print "({$this->content}) LEFT SCAN {$scan->prevSibling->precedence}: {$scan->prevSibling->fmtObj()}\n";
             $scan = $scan->prevSibling;
         }
-
+//if ($scan->prevSibling !== null) {
+//print "({$this->content}) LEFT STOP {$scan->prevSibling->precedence}: {$scan->prevSibling->fmtObj()}\n";
+//} else {
+//print "({$this->content}) LEFT STOP NULL\n";
+//}
         // Might've scanned back to a newline, skip past it
         while ($scan->isWs()) {
             $scan = $scan->nextSibling;
         }
         $start = $scan;
+
+        // Call all the converters before we gather the content
+        for ($scan = $start; $scan !== $this; $scan = $scan->nextSibling) {
+            $scan->callRecursiveConverters();
+        }
+
+        // Gather the content
         $content = '';
-        while ($scan !== $this) {
+        for ($scan = $start; $scan !== $this; $scan = $scan->nextSibling) {
             $content .= $scan->getRecursiveContent();
             if (! $noCancel) {
                 $scan->cancelAll();
             }
-            $scan = $scan->nextSibling;
         }
 
         if (! $noTrim) {
@@ -809,7 +843,9 @@ repeat:
     function getRightArg(
         $options = [])
     {
-        $prec = $this->getPrecedence();
+//print "({$this->content}) RIGHT THIS: {$this->fmtObj()}\n";
+//print Converter::dumpStruct($this->root);
+        $prec = $this->precedence;
         $noCancel = ! empty($options['no_cancel']);
         $noTrim = ! empty($options['no_trim']);
 
@@ -820,21 +856,49 @@ repeat:
             return [ 'end' => null, 'content' => '' ];
         }
 
+//print "({$this->content}) RIGHT PREC: $prec\n";
+        $scan = $this;
+        do {
+            $scan = $scan->nextSibling;
+//if ($scan->nextSibling !== null) {
+//$scanPrec = $scan->nextSibling->precedence;
+//print "({$this->content}) RIGHT SCAN $scanPrec: {$scan->fmtObj()}\n";
+//}
+        } while ($scan->nextSibling !== null
+            && $scan->nextSibling->precedence <= $prec);
+        $last = $scan;
+//print "({$this->content}) RIGHT LAST: {$last->fmtObj()}\n";
+
+//print "({$this->content}) RIGHT CALL CONVERTERS\n";
+        // Call all the converters before we gather the text
+        $scan = $this;
+        do {
+            $scan = $scan->nextSibling;
+            $scan->callRecursiveConverters();
+        } while ($scan !== $last);
+
+//print "({$this->content}) RIGHT GATHER TEXT\n";
+        // Gather the text
         $scan = $this;
         do {
             $scan = $scan->nextSibling;
             $content .= $scan->getRecursiveContent();
-            if (! $noCancel) {
+        } while ($scan !== $last);
+
+//print "({$this->content}) RIGHT CANCEL\n";
+        if (! $noCancel) {
+            $scan = $this;
+            do {
+                $scan = $scan->nextSibling;
                 $scan->cancelAll();
-            }
-        } while ($scan->nextSibling !== null &&
-                $scan->nextSibling->getPrecedence() <= $prec);
+            } while ($scan !== $last);
+        }
 
         if (! $noTrim) {
             $content = trim($content);
         }
 
-        return [ $content, $scan ];
+        return [ $content, $last ];
     }
 
 }

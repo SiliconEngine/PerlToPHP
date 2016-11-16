@@ -35,9 +35,6 @@ class PpiToken extends PpiElement
 {
     public function anaContext()
     {
-//        // Default to parent context
-//        $this->setContext($this->parent->context);
-
         // Default to prior token's context, unless newline
         if ($this->prev->isNewline()) {
             $this->setContext('scalar');
@@ -632,9 +629,6 @@ class PpiTokenSymbol extends PpiToken
 
 }
 
-
-
-
 /**
  * Process general token word, this is where a lot of the action takes
  * place.
@@ -1100,7 +1094,7 @@ class PpiTokenWord extends PpiToken
         $neg = $this->content == 'unless';
         $needSwitch = false;
 
-        // Scan ahead to see if we need a reverse of "expr if (cond);"
+        // Scan in front to see if we need a reverse of "expr if (cond);"
         $obj = $this;
         while (($obj = $obj->prev) !== null) {
             if ($obj->isWs()) {
@@ -1124,12 +1118,19 @@ class PpiTokenWord extends PpiToken
         }
 
         if (! $needSwitch) {
-            // No code before the 'if' statement. If 'unless', then we need
-            // to reverse the conditional.
+            // No code before the if/unless statement. If 'unless', then we
+            // need to reverse the conditional.
             if ($this->content == 'unless') {
-                $condition = trim($this->next->getRecursiveContent());
-                $this->next->cancelAll();
-                $this->content = "if (! $condition)";
+                // The condition must be in parenthesis, which helps things.
+                if (! ($this->next instanceof PpiStructureCondition)) {
+                    print "Missing PpiStructureCondition:\n" .
+                        "{$this->next->fmtObj()}\n";
+                    exit(1);
+                }
+
+                $this->content = 'if';
+                $this->next->startContent = "(! (";
+                $this->next->endContent = "))";
             }
 
             return;
@@ -1142,27 +1143,11 @@ class PpiTokenWord extends PpiToken
 
         $indentAmt = $this->getIndent();
 
-        $leftText = '';
-        $rightText = '';
-        $foundObj = false;
-        $parent = $this->parent;
-        foreach ($parent->children as $obj) {
-            if ($obj === $this) {
-                $foundObj = true;
-                continue;
-            }
-
-            if (! $foundObj) {
-                $leftText .= $obj->getRecursiveContent();
-            } else {
-                $rightText .= $obj->getRecursiveContent();
-            }
-        }
-        $parent->cancelAll();
-        $this->uncancel();
+        list($leftText, $left) = $this->getLeftArg();
+        list($rightText, $right) = $this->getRightArg();
 
         // Copy any spaces at front of expression to new expression
-        $this->preWs = $parent->getNextToken()->preWs;
+        $this->preWs = $left->preWs;
 
         $rightText = trim(preg_replace('/;\s*$/', '', $rightText));
         if (substr($rightText, 0, 1) != '(') {
@@ -1182,6 +1167,12 @@ class PpiTokenWord extends PpiToken
         $this->content = "if $rightText {\n" .
             "$indent    $leftText;\n" .
             "$indent}";
+
+        // If token after right expression is a semicolon, kill it.
+        if ($right->nextSibling->isSemicolon()) {
+            $right->nextSibling->cancel();
+        }
+
         return;
     }
 
