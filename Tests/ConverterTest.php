@@ -1068,6 +1068,9 @@ PHP;
             for ($i = 0; $i < 1; ++$i) {
                 next LABEL;
             }
+            for ($i = 0; $i < 1; ++$i) {
+                next if ($a == $b);
+            }
 PERL;
 
         $php = <<<'PHP'
@@ -1076,6 +1079,11 @@ PERL;
             }
             for ($i = 0; $i < 1; ++$i) {
                 continue /*check:LABEL*/;
+            }
+            for ($i = 0; $i < 1; ++$i) {
+                if ($a == $b) {
+                    continue;
+                }
             }
 PHP;
         $this->doConvertTest($perl, $php);
@@ -1087,6 +1095,9 @@ PHP;
             for ($i = 0; $i < 1; ++$i) {
                 last LABEL;
             }
+            for ($i = 0; $i < 1; ++$i) {
+                last if ($a == $b);
+            }
 PERL;
 
         $php = <<<'PHP'
@@ -1095,6 +1106,11 @@ PERL;
             }
             for ($i = 0; $i < 1; ++$i) {
                 break /*check:LABEL*/;
+            }
+            for ($i = 0; $i < 1; ++$i) {
+                if ($a == $b) {
+                    break;
+                }
             }
 PHP;
         $this->doConvertTest($perl, $php);

@@ -1257,7 +1257,10 @@ class PpiTokenWord extends PpiToken
         $this->content = 'break';
         $label = $this->next;
         if ($label instanceof PpiTokenWord) {
-            $label->content = "/*check:{$label->content}*/";
+            // If it's of form 'last if (condition)', let it convert later.
+            if (! in_array($label->content, [ 'if', 'unless' ])) {
+                $label->content = "/*check:{$label->content}*/";
+            }
         }
     }
 
@@ -1269,7 +1272,10 @@ class PpiTokenWord extends PpiToken
         $this->content = 'continue';
         $label = $this->next;
         if ($label instanceof PpiTokenWord) {
-            $label->content = "/*check:{$label->content}*/";
+            // If it's of form 'next if (condition)', let it convert later.
+            if (! in_array($label->content, [ 'if', 'unless' ])) {
+                $label->content = "/*check:{$label->content}*/";
+            }
         }
     }
 
