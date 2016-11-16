@@ -780,7 +780,13 @@ class PpiTokenWord extends PpiToken
                     $this->killContentAndWs();
                     break;
                 case 'goto':
-                    $this->tokenWordGoto(true, 'if');
+                    $this->tokenWordGoto();
+                    break;
+                case 'last':
+                    $this->tokenWordLast();
+                    break;
+                case 'next':
+                    $this->tokenWordNext();
                     break;
                 }
             } else {
@@ -1238,8 +1244,32 @@ class PpiTokenWord extends PpiToken
     private function tokenWordGoto()
     {
         $label = $this->next;
-        if ($label->content = 'EXIT') {
+        if ($label->content == 'EXIT') {
             $label->content = 'EXIT_LABEL';
+        }
+    }
+
+    /**
+     * 'last'
+     */
+    private function tokenWordLast()
+    {
+        $this->content = 'break';
+        $label = $this->next;
+        if ($label instanceof PpiTokenWord) {
+            $label->content = "/*check:{$label->content}*/";
+        }
+    }
+
+    /**
+     * 'next'
+     */
+    private function tokenWordNext()
+    {
+        $this->content = 'continue';
+        $label = $this->next;
+        if ($label instanceof PpiTokenWord) {
+            $label->content = "/*check:{$label->content}*/";
         }
     }
 

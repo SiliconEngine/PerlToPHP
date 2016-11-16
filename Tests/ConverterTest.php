@@ -1056,6 +1056,50 @@ PHP;
         $this->doConvertTest($perl, $php);
     }
 
+    /**
+     * Test next/last
+     */
+    public function testNextLast()
+    {
+        $perl = <<<'PERL'
+            for ($i = 0; $i < 1; ++$i) {
+                next;
+            }
+            for ($i = 0; $i < 1; ++$i) {
+                next LABEL;
+            }
+PERL;
+
+        $php = <<<'PHP'
+            for ($i = 0; $i < 1; ++$i) {
+                continue;
+            }
+            for ($i = 0; $i < 1; ++$i) {
+                continue /*check:LABEL*/;
+            }
+PHP;
+        $this->doConvertTest($perl, $php);
+
+        $perl = <<<'PERL'
+            for ($i = 0; $i < 1; ++$i) {
+                last;
+            }
+            for ($i = 0; $i < 1; ++$i) {
+                last LABEL;
+            }
+PERL;
+
+        $php = <<<'PHP'
+            for ($i = 0; $i < 1; ++$i) {
+                break;
+            }
+            for ($i = 0; $i < 1; ++$i) {
+                break /*check:LABEL*/;
+            }
+PHP;
+        $this->doConvertTest($perl, $php);
+    }
+
 
     /**
      * Template for new tests
