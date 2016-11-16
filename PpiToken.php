@@ -64,7 +64,6 @@ class PpiTokenQuoteDouble extends PpiTokenQuote
 
 }
 
-
 /**
  * Special count syntax like "$#var"
  */
@@ -351,10 +350,8 @@ class PpiTokenOperator extends PpiToken
      */
     function cvtFileExists()
     {
-        $obj = $this->next;
-        $expr = trim($obj->getRecursiveContent());
+        list($expr, $right) = $this->getRightArg();
         $this->content = "file_exists($expr)";
-        $obj->cancelAll();
     }
 
     function cvtRegEx($neg = false)
@@ -363,12 +360,11 @@ class PpiTokenOperator extends PpiToken
         $right = $this->next;
         $right->preWs = '';
 
-        // Get left side variable to match
-        $var = trim($left->getRecursiveContent());
+        list($var, $left) = $this->getLeftArg();
 
         // Get right side regex expression, which might come back with
         // single quotes.
-        $regex = $right->getRecursiveContent();
+        list($regex, $last) = $this->getRightArg();
 
         if (substr($regex, 0, 2) == "'s") {
             // Substitute, need to split into regex and substitute
@@ -389,7 +385,7 @@ class PpiTokenOperator extends PpiToken
 
                 $pattern = trim($matches[1]);
                 $replace = trim($matches[2]);
-                $leftVar = $var;
+                $leftVar = $var = trim($var);
 
                 // Check for special case that looks like this:
                 // ($x = $y) =~ s/pattern/subst/;
@@ -411,15 +407,12 @@ class PpiTokenOperator extends PpiToken
 
             $regex = trim($regex);
             $var = trim($var);
-            $this->preWs = '';
+            $this->preWs = $left->preWs;
             $this->content = "preg_match($regex, $var)";
             if ($neg) {
                 $this->content = "! ({$this->content})";
             }
         }
-
-        $left->cancelAll();
-        $right->cancelAll();
 
         return parent::genCode();
     }
@@ -429,22 +422,15 @@ class PpiTokenOperator extends PpiToken
      */
     private function cvtStrRepeat()
     {
-        $left = $this->prev;
-        $right = $this->next;
-        $left->preWs = '';
-        $right->preWs = '';
-
-        $leftText = $left->getRecursiveContent();
-        $rightText = $right->getRecursiveContent();
+        list($leftText, $left) = $this->getLeftArg();
+        list($rightText, $right) = $this->getRightArg();
 
         $this->content = "str_repeat($leftText, $rightText)";
-        $left->cancelAll();
-        $right->cancelAll();
+        $this->preWs = $left->preWs;
         return parent::genCode();
     }
 
 }
-
 
 class PpiTokenComment extends PpiToken
 {
@@ -524,8 +510,6 @@ class PpiTokenComment extends PpiToken
         return parent::genCode();
     }
 }
-
-
 
 /**
  * string like "qw(abc def)";
@@ -1101,65 +1085,10 @@ class PpiTokenWord extends PpiToken
             return;
         }
 
-        // Otherwise suck up tokens that collect with themselves, like:
-        // $a = pop $x{abc}{def};
-
-        $obj = $this;
-        $code = '';
-        for(;;) {
-            $obj = $obj->nextSibling;
-            if ($obj === null || ! ($obj->content == '@'
-                    || $obj instanceof PpiTokenSymbol
-                    || $obj instanceof PpiTokenWord
-                    || $obj instanceof PpiStructure)) {
-                break;
-            }
-
-            $code .= $obj->getRecursiveContent();
-            $obj->cancelAll();
-        }
+        list($code, $right) = $this->getRightArg();
 
         $this->content = "$newWord(" . trim($code) . ")";
         return;
-
-
-
-
-
-//        $this->content = $newWord;
-//        $obj = $this->next;
-//        // If next token is a cast, we probably have something like
-//        // pop @$x;
-//        if ($obj->content == '@') {
-//            $t = $obj->getRecursiveContent();
-//            $obj->cancel();
-//            $obj = $obj->next;
-//        }
-//
-//        // Check for no parentheses
-//        if (! ($obj instanceof PpiStructureList)) {
-//
-//            $obj->preWs = '';
-//            $code = $obj->getRecursiveContent();
-//            $obj->cancelAll();
-//
-//            // See if we have a subscript following a word
-//            if ($obj instanceof PpiTokenSymbol) {
-//                for(;;) {
-//                    $obj = $obj->nextSibling;
-//                    if ($obj === null ||
-//                            ! $obj instanceof PpiStructureSubscript) {
-//                        break;
-//                    }
-//
-//                    $code .= $obj->getRecursiveContent();
-//                    $obj->cancelAll();
-//                }
-//            }
-//
-//            $this->content = "$newWord($code)";
-//        }
-//        return;
     }
 
     /**

@@ -23,6 +23,34 @@ class PpiElement
     public $startContent = '';
     public $endContent = '';
 
+    private $precList = [
+        1 => [ '[', '(', '{' ],
+        2 => [ '->' ],
+        3 => [ '++', '--' ],
+        4 => [ '**' ],
+        5 => [ '!', '~', '\\', 'and', 'unary', '+', 'and', '-' ],
+        6 => [ '=~', '!~' ],
+        7 => [ '*', '/', '%', 'x' ],
+        8 => [ '+', '-', '.' ],
+        9 => [ '<<', '>>' ],
+        10 => [ 'named_unary_operators' ],
+        11 => [ '<', '>', '<=', '>=', 'lt', 'gt', 'le', 'ge' ],
+        12 => [ '==', '!=', '<=>', 'eq', 'ne', 'cmp', '~~' ],
+        13 => [ '&' ],
+        14 => [ '|', '^' ],
+        15 => [ '&&' ],
+        16 => [ '||', '//' ],
+        17 => [ '..', ' ...' ],
+        18 => [ '?:' ],
+        19 => [ '=', '+=', '-=', '*=', 'etc.', 'goto', 'last', 'next', 'redo', 'dump' ],
+        20 => [ ',', '=>' ],
+        21 => [ 'list operators (rightward)' ],
+        22 => [ 'not' ],
+        23 => [ 'and' ],
+        24 => [ 'or', 'xor' ],
+        25 => [ ';' ],
+    ];
+
     /**
      * What context the node is in: neutral, array, hash, scalar, string
      */
@@ -700,6 +728,113 @@ repeat:
         }
 
         return;
+    }
+
+    /**
+     * Get expression precedence for token
+     */
+    public function getPrecedence()
+    {
+        static $oprPrec = null;
+
+        if ($oprPrec === null) {
+            $oprPrec = [];
+            foreach ($this->precList as $level => $keywords) {
+                foreach ($keywords as $word) {
+                    $oprPrec[$word] = $level;
+                }
+            }
+        }
+
+        if ($this instanceof PpiTokenRegexp) {
+            $token = '//';
+        } elseif (preg_match('/^-{0,1}\w+$/', $this->content)) {
+            // Bareword, possible function
+
+            $token = 'named_unary_operators';
+        } else {
+            $token = $this->startContent ?: $this->content;
+        }
+        return isset($oprPrec[$token]) ? $oprPrec[$token] : 0;
+    }
+
+    /**
+     * Figure out left argument of this operator by examining the
+     * the precedence.
+     */
+    function getLeftArg(
+        $options = [])
+    {
+        $prec = $this->getPrecedence();
+        $noCancel = ! empty($options['no_cancel']);
+        $noTrim = ! empty($options['no_trim']);
+
+        // Scan backward and look for token with higher precedence so we
+        // can isolate the argument.
+        $scan = $this->prevSibling;
+        if ($scan === null) {
+            return [ 'start' => null, 'content' => '' ];
+        }
+
+        while ($scan->prevSibling !== null
+                        && $scan->prevSibling->getPrecedence() <= $prec) {
+            $scan = $scan->prevSibling;
+        }
+
+        // Might've scanned back to a newline, skip past it
+        while ($scan->isWs()) {
+            $scan = $scan->nextSibling;
+        }
+        $start = $scan;
+        $content = '';
+        while ($scan !== $this) {
+            $content .= $scan->getRecursiveContent();
+            if (! $noCancel) {
+                $scan->cancelAll();
+            }
+            $scan = $scan->nextSibling;
+        }
+
+        if (! $noTrim) {
+            $content = trim($content);
+        }
+
+        return [ $content, $start ];
+    }
+
+    /**
+     * Figure out right argument of this operator by examining the
+     * the precedence.
+     */
+    function getRightArg(
+        $options = [])
+    {
+        $prec = $this->getPrecedence();
+        $noCancel = ! empty($options['no_cancel']);
+        $noTrim = ! empty($options['no_trim']);
+
+        // Scan forward and look for token with higher precedence so we
+        // can isolate the argument.
+        $content = '';
+        if ($this->nextSibling === null) {
+            return [ 'end' => null, 'content' => '' ];
+        }
+
+        $scan = $this;
+        do {
+            $scan = $scan->nextSibling;
+            $content .= $scan->getRecursiveContent();
+            if (! $noCancel) {
+                $scan->cancelAll();
+            }
+        } while ($scan->nextSibling !== null &&
+                $scan->nextSibling->getPrecedence() <= $prec);
+
+        if (! $noTrim) {
+            $content = trim($content);
+        }
+
+        return [ $content, $scan ];
     }
 
 }

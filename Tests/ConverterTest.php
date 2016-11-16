@@ -359,6 +359,27 @@ PHP;
     }
 
     /**
+     * Test expression precedence detection
+     */
+    public function testExprPrec()
+    {
+        $perl = <<<'PERL'
+            if ($name eq 'Test' and $agency->{Test} !~ /^\/LINK/) {
+            }
+            $z = $agency->{Test} !~ /^\/LINK/;
+            $z = $b + $agency->{Test} =~ /^\/LINK/;
+PERL;
+
+        $php = <<<'PHP'
+            if ($name === 'Test' && ! (preg_match('/^\/LINK/', $agency['Test']))) {
+            }
+            $z = ! (preg_match('/^\/LINK/', $agency['Test']));
+            $z = $b + preg_match('/^\/LINK/', $agency['Test']);
+PHP;
+        $this->doConvertTest($perl, $php);
+    }
+
+    /**
      * Test function argument conversion ('= @_' method)
      */
     public function testFuncArg1()
