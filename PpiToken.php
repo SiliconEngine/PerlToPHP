@@ -827,36 +827,40 @@ class PpiTokenWord extends PpiToken
                 // First check for the easy case of "my ($var, $var2) = @_;"
 
                 $obj = $tokens[1];
-                $obj = $obj->next;
+                $obj = $obj->getNextNonWs();
                 $firstObj = $obj;
-                $obj = $obj->next;
 
                 $argList = [];
                 $found = false;
                 $saveObj = $obj;
                 if ($obj instanceof PpiStatementVariable) {
                     $max = 200;
-                    while (($obj = $obj->next) !== null && --$max > 0) {
-                        if ($obj->content == '@_') {
+                    $child = $obj->children[0];
+                    $lastChild = end($obj->children);
+                    while (! $child->isSemicolon() && --$max > 0) {
+                        if ($child->content == '@_') {
                             $found = true;
-                            // Cancel semicolon and newline
-                            $obj = $obj->findNewline();
 
-                            // Skip blank lines
-                            while ($obj->next->isNewline()) {
-                                $obj = $obj->next;
+                            // Cancel object and all children
+                            $obj->cancelAll();
+
+                            // Suck up extra newlines, but keep one
+                            $obj = $obj->nextSibling;
+                            if ($obj->isNewline()) {
+                                while ($obj->next->isNewline()) {
+                                    $obj->cancel();
+                                    $obj = $obj->next;
+                                }
                             }
-                            // Keep last newline
-                            $obj = $obj->prev;
                             break;
                         }
 
-                        if ($obj instanceof PpiTokenSymbol) {
-                            $argList[] = $var = $obj->genCode();
-                            continue;
+                        if ($child instanceof PpiTokenSymbol) {
+                            $argList[] = $child->content;
                         }
 
-                        if ($obj->isSemicolon()) {
+                        $child = $child->next;
+                        if ($child === $lastChild) {
                             break;
                         }
                     }
@@ -869,29 +873,18 @@ class PpiTokenWord extends PpiToken
                     // for lines like: "my $var = shift;"
                     $obj = $saveObj;
                     while ($obj instanceof PpiStatementVariable) {
-                        $obj1 = $obj->getNextNonWs();
-                        $obj2 = $obj1->getNextNonWs();
-                        $obj3 = $obj2->getNextNonWs();
-                        $obj4 = $obj3->getNextNonWs();
-                        $obj5 = $obj4->getNextNonWs();
-                        $obj = $obj5->getNextNonWs();
-                        if ($obj1->content != 'my' ||
-                                ! ($obj2 instanceof PpiTokenSymbol) ||
-                                $obj3->content != '=' ||
-                                $obj4->content != 'shift' ||
-                                ! $obj5->isSemicolon()) {
+                        $list = $obj->peekAhead(6, [ 'skip_ws' => true ]);
+                        if ($list[0]->content != 'my'
+                                || ! $list[1] instanceof PpiTokenSymbol
+                                || $list[2]->content != '='
+                                || $list[3]->content != 'shift'
+                                || ! $list[4]->isSemicolon()) {
 
                             break;
                         }
 
-                        $argList[] = $obj2->genCode();
-                    }
-
-                    if (count($argList)) {
-                        $obj = $obj5;
-                        while (! $obj->isNewline()) {
-                            $obj = $obj->next;
-                        }
+                        $argList[] = $list[1]->genCode();
+                        $obj = $list[5];
                     }
                 }
             }

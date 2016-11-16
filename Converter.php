@@ -328,8 +328,7 @@ class Converter
         $obj,
         $level = 0)
     {
-        $canInd = $obj->cancel ? '-' : ' ';
-        $s = sprintf("%3d%s%s\n", $obj->id, $canInd, $obj->fmtObj($level));
+        $s = $obj->fmtObj($level) . "\n";
         foreach ($obj->children as $sub) {
             if ($sub->parent !== $obj) {
                 print "bad parent!\n";

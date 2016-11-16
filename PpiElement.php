@@ -311,13 +311,17 @@ repeat:
     /**
      * Skip whitespace after this object and return object;
      */
-    public function skipWhitespace()
+    public function skipWs()
     {
         $obj = $this;
         while ($obj !== null && $obj instanceof PpiTokenWhitespace) {
             $obj = $obj->next;
         }
         return $obj;
+    }
+    public function skipWhitespace()
+    {
+        return $this->skipWs();
     }
 
     /**
@@ -609,7 +613,8 @@ repeat:
             $content = "'$s': $content";
         }
 
-        return sprintf('%-12s %-40s   %s', $this->context ?: 'null',
+        return sprintf('%3d%s%-12s %-40s   %s', $this->id,
+            $this->cancel ? '-' : ' ', $this->context ?: 'null',
             str_repeat(' ', $level*2) . get_class($this), $content);
     }
 

@@ -411,6 +411,22 @@ PHP;
             sub func
             {
                 my $a = shift;
+                print;
+            }
+PERL;
+
+        $php = <<<'PHP'
+            function func($a)
+            {
+                print;
+            }
+PHP;
+        $this->doConvertTest($perl, $php);
+
+        $perl = <<<'PERL'
+            sub func
+            {
+                my $a = shift;
                 my $b = shift;
 
                 print;
