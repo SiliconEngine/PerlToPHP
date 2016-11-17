@@ -155,20 +155,39 @@ PHP;
     }
 
 
-    public function testConvert10()
+    /**
+     * Test function conversions.
+     */
+    public function testSub()
     {
         $perl = <<<'PERL'
-    sub func
-    {
-        my ($a, $b, $c) = (1, 2, 3);
-    }
+            sub func
+            {
+                my ($a, $b, $c) = (1, 2, 3);
+            }
 PERL;
 
         $php = <<<'PHP'
-    function func()
-    {
-        list($a, $b, $c) = [1, 2, 3];
-    }
+            function func()
+            {
+                list($a, $b, $c) = [1, 2, 3];
+            }
+PHP;
+        $this->doConvertTest($perl, $php);
+
+        // Test function with prototype
+        $perl = <<<'PERL'
+            sub func()
+            {
+                print;
+            }
+PERL;
+
+        $php = <<<'PHP'
+            function func()
+            {
+                print;
+            }
 PHP;
         $this->doConvertTest($perl, $php);
     }
@@ -1160,6 +1179,38 @@ PERL;
             $z = /*check:chomp*/preg_replace('/\n$/', '', $z);
             $b = /*check:chomp*/preg_replace('/\n$/', '', $b = $z);
             $b = /*check:chomp*/preg_replace('/\n$/', '', $b = $z + 3 * 10);
+PHP;
+        $this->doConvertTest($perl, $php);
+    }
+
+    /**
+     * Test empty parentheses into array
+     */
+    public function testEmptyParens()
+    {
+        $perl = <<<'PERL'
+            return ();
+            return ( );
+PERL;
+
+        $php = <<<'PHP'
+            return [];
+            return [ ];
+PHP;
+        $this->doConvertTest($perl, $php);
+    }
+
+    /**
+     * Test removing extra commas from function parameter lists
+     */
+    public function testExtraCommaFuncParam()
+    {
+        $perl = <<<'PERL'
+            func(1, 2, 3, );
+PERL;
+
+        $php = <<<'PHP'
+            func(1, 2, 3 );
 PHP;
         $this->doConvertTest($perl, $php);
     }

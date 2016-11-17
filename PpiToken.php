@@ -39,7 +39,7 @@ class PpiToken extends PpiElement
         if ($this->prev->isNewline()) {
             $this->setContext('scalar');
         } else {
-            $this->setContext($this->getPrevSiblingNonWs()->context);
+            $this->setContext($this->getPrevSiblingUpTree()->context);
         }
     }
 }
@@ -288,7 +288,7 @@ class PpiTokenOperator extends PpiToken
 
         case '=':
             // lvalue generally determines context
-            $this->setContext($this->getPrevSiblingNonWs()->context);
+            $this->setContext($this->getPrevSiblingUpTree()->context);
             break;
 
         default:
@@ -829,16 +829,24 @@ class PpiTokenWord extends PpiToken
             // Function context
 
             // Get the name of the function
-            $tokens = $this->peekAhead(2, [ 'skip_ws' => true ]);
-            $name = $this->cvtCamelCase($tokens[0]->content);
-            $tokens[0]->cancel();
             $argList = [];
+            $obj = $this->getNextNonWs();
 
-            if ($tokens[1] instanceof PpiStructureBlock) {
+            // Get the name of the function
+            $name = $this->cvtCamelCase($obj->content);
+            $obj->cancel();
+            $obj = $obj->getNextNonWs();
+
+            // If parentheses follow the function (prototype), just kill it
+            if ($obj instanceof PpiTokenPrototype) {
+                $obj->cancelAll();
+                $obj = $obj->getNextNonWs();
+            }
+
+            if ($obj instanceof PpiStructureBlock) {
                 // Try to figure out an argument list
                 // First check for the easy case of "my ($var, $var2) = @_;"
 
-                $obj = $tokens[1];
                 $obj = $obj->getNextNonWs();
                 $firstObj = $obj;
 

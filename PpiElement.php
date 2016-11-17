@@ -368,10 +368,10 @@ repeat:
     }
 
     /**
-     * Get previous token that isn't whitespace. If hits front, goes
-     * up to parent to continue;
+     * Get previous sibling that isn't whitespace. If hits front, goes
+     * up to parent to continue.
      */
-    public function getPrevSiblingNonWs()
+    public function getPrevSiblingUpTree()
     {
         $obj = $this;
         do {
@@ -380,6 +380,19 @@ repeat:
             } else {
                 $obj = $obj->prevSibling;
             }
+        } while ($obj !== null && $obj instanceof PpiTokenWhitespace);
+
+        return $obj;
+    }
+
+    /**
+     * Get previous sibling that isn't whitespace. If hits front, returns null.
+     */
+    public function getPrevSiblingNonWs()
+    {
+        $obj = $this;
+        do {
+            $obj = $obj->prevSibling;
         } while ($obj !== null && $obj instanceof PpiTokenWhitespace);
 
         return $obj;

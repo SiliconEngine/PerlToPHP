@@ -100,6 +100,7 @@ class PpiStructureList extends PpiStructure
         //          context.
         //      5) Special: 'return' is array if has a comma (chk in 'return')
         //      6) Special: foreach $a (@$b)
+        //      7) Special: Empty parenthesis () is an empty array.
         //
         // TESTS:
         //    @a = (1 + 2, 3)
@@ -117,7 +118,7 @@ class PpiStructureList extends PpiStructure
             if ($node->prevSibling === null) {
                 $node = $node->parent;
             } else {
-                $node = $node->prevSibling;
+                $node = $node->getPrevSiblingNonWs();
             }
 
             if ($node instanceof PpiTokenSymbol) {
@@ -191,6 +192,25 @@ class PpiStructureList extends PpiStructure
             // Exception: return ('a', 'b')
             if ($this->prev instanceof PpiTokenWord &&
                             $this->prev->content != 'return') {
+
+                // In perl, you can have a comma at the end, but no in PHP.
+                // Kill any stray commas.
+
+                $obj = $this->nextSibling->prev;
+                while ($obj->isWs()) {
+                    $obj = $obj->prev;
+                }
+                if ($obj->content == ',') {
+                    $obj->cancel();
+                }
+
+                return parent::genCode();
+            }
+
+            // Empty parentheses should be converted to brackets
+            if (count($this->children) == 0) {
+                $this->startContent = '[';
+                $this->endContent = ']';
                 return parent::genCode();
             }
 
