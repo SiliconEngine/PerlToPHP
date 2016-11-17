@@ -731,25 +731,25 @@ class PpiTokenWord extends PpiToken
                 case 'my':          $this->tokenWordMy();           break;
                 case 'split':       $this->tokenWordSplit();        break;
                 case 'shift':
-                    $this->convertWordWithArg('array_shift');
+                    $this->tokenWordWithArg('array_shift');
                     break;
                 case 'pop':
-                    $this->convertWordWithArg('array_pop');
+                    $this->tokenWordWithArg('array_pop');
                     break;
                 case 'uc':
-                    $this->convertWordWithArg('strtoupper');
+                    $this->tokenWordWithArg('strtoupper');
                     break;
                 case 'lc':
-                    $this->convertWordWithArg('strtolower');
+                    $this->tokenWordWithArg('strtolower');
                     break;
                 case 'delete':
-                    $this->convertWordWithArg('unset');
+                    $this->tokenWordWithArg('unset');
                     break;
                 case 'keys':
-                    $this->convertWordWithArg('array_keys');
+                    $this->tokenWordWithArg('array_keys');
                     break;
                 case 'close':
-                    $this->convertWordWithArg('close');
+                    $this->tokenWordWithArg('close');
                     break;
                 case 'unshift':
                     $this->content = 'array_unshift';
@@ -761,7 +761,7 @@ class PpiTokenWord extends PpiToken
                     $this->content = 'strlen';
                     break;
                 case 'defined':
-                    $this->convertWordWithArg('/*check*/isset');
+                    $this->tokenWordWithArg('/*check*/isset');
                     break;
                 case 'sub':         $this->tokenWordSub();          break;
                 case 'package':     $this->tokenWordPackage();      break;
@@ -787,6 +787,12 @@ class PpiTokenWord extends PpiToken
                     break;
                 case 'next':
                     $this->tokenWordNext();
+                    break;
+                case 'chop':
+                    $this->tokenLValueWithArg('/*check:chop*/substr(%s, 0, -1)');
+                    break;
+                case 'chomp':
+                    $this->tokenLValueWithArg("/*check:chomp*/preg_replace('/\\n$/', '', %s)");
                     break;
                 }
             } else {
@@ -1064,7 +1070,7 @@ class PpiTokenWord extends PpiToken
     /**
      * Check for things like "pop @x"
      */
-    private function convertWordWithArg($newWord)
+    private function tokenWordWithArg($newWord)
     {
         // Check for case like "$a = func(shift);". Just mark it.
         // Or case like = shift;
@@ -1176,6 +1182,31 @@ class PpiTokenWord extends PpiToken
     }
 
     /**
+     * Convert functions like 'chop' which take an l-value
+     */
+    private function tokenLValueWithArg(
+        $format)                    // sprintf-format
+    {
+        list($code, $right) = $this->getRightArg();
+
+        // Remove parenthesis, if any.
+        if (substr($code, 0, 1) == '(') {
+            $code = substr($code, 1, -1);
+        }
+        $code = trim($code);
+        $var = $code;
+
+        // See if it's something like "chop($a = $b)"
+        if (preg_match('/(\$\w+)\s*=/', $var, $matches)) {
+            $var = $matches[1];
+        }
+
+        $format = "%s = $format";
+        $this->content = sprintf($format, $var, $code);
+        return;
+    }
+
+    /**
      * Process foreach statement, which requires syntax mod.
      */
     private function tokenWordForeach()
@@ -1215,11 +1246,19 @@ class PpiTokenWord extends PpiToken
      */
     private function tokenWordUse()
     {
-        $this->content = 'use';
+        // If used within a function, not allowed in PHP. Comment out
+        // whole thing.
+        if ($this->isWithinSub()) {
+            $this->content = "check:{$this->content}";
+            $obj = $this;
+        } else {
+            // If require, convert to 'use'
+            $this->content = 'use';
+            $obj = $this->next->next;
+        }
 
         // The next word is the argument and then just comment out
         // anything that follows.
-        $obj = $this->next->next;
         if (! $obj->isSemicolon()) {
             $newObj = $obj->insertLeftText('/*');
             $newObj->preWs = $obj->preWs;

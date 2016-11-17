@@ -734,7 +734,7 @@ PERL;
         $php = <<<'PHP'
             use Foo\Bar;
 PHP;
-        $this->doConvertTest($perl, $php);
+        $this->doConvertTest($perl, $php, [ 'no_func' => true ]);
 
         // Simple require
         $perl = <<<'PERL'
@@ -744,7 +744,7 @@ PERL;
         $php = <<<'PHP'
             use Foo\Bar;
 PHP;
-        $this->doConvertTest($perl, $php);
+        $this->doConvertTest($perl, $php, [ 'no_func' => true ]);
 
         // Use with stuff after it, just comment it out.
         $perl = <<<'PERL'
@@ -754,7 +754,26 @@ PERL;
         $php = <<<'PHP'
             use Foo\Bar /*qw(a b c)*/;
 PHP;
-        $this->doConvertTest($perl, $php);
+        $this->doConvertTest($perl, $php, [ 'no_func' => true ]);
+
+        // Within a subroutine is invalid, so comment out
+        $perl = <<<'PERL'
+            sub abc
+            {
+                use Foo::Bar qw(a b c);
+                require Foo::Bar qw(a b c);
+            }
+PERL;
+
+        $php = <<<'PHP'
+            function abc()
+            {
+                /*check:use Foo::Bar qw(a b c)*/;
+                /*check:require Foo::Bar qw(a b c)*/;
+            }
+PHP;
+        $this->doConvertTest($perl, $php, [ 'no_func' => true ]);
+
     }
 
     /**
@@ -1116,6 +1135,34 @@ PHP;
         $this->doConvertTest($perl, $php);
     }
 
+    /**
+     * Test chop/chomp
+     */
+    public function testChopChomp()
+    {
+        $perl = <<<'PERL'
+            chop $z;
+            chop($z);
+            chop($b = $z);
+            chop($b = $z + 3 * 10);
+            chomp $z;
+            chomp($z);
+            chomp($b = $z);
+            chomp($b = $z + 3 * 10);
+PERL;
+
+        $php = <<<'PHP'
+            $z = /*check:chop*/substr($z, 0, -1);
+            $z = /*check:chop*/substr($z, 0, -1);
+            $b = /*check:chop*/substr($b = $z, 0, -1);
+            $b = /*check:chop*/substr($b = $z + 3 * 10, 0, -1);
+            $z = /*check:chomp*/preg_replace('/\n$/', '', $z);
+            $z = /*check:chomp*/preg_replace('/\n$/', '', $z);
+            $b = /*check:chomp*/preg_replace('/\n$/', '', $b = $z);
+            $b = /*check:chomp*/preg_replace('/\n$/', '', $b = $z + 3 * 10);
+PHP;
+        $this->doConvertTest($perl, $php);
+    }
 
     /**
      * Template for new tests
