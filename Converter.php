@@ -12,11 +12,18 @@ class Converter
     protected $root;
     protected $flatList;
     protected $quietOpt = false;
+    protected $verboseOpt = false;
 
     public function setQuiet(
         $opt)
     {
         $this->quietOpt = $opt;
+    }
+
+    public function setVerbose(
+        $opt)
+    {
+        $this->verboseOpt = $opt;
     }
 
     /**
@@ -373,6 +380,9 @@ class Converter
 
         // Step 1: Call all converters
         foreach ($this->flatList as $obj) {
+            if ($this->verboseOpt) {
+                print "Convert: {$obj->id}\n";
+            }
             $obj->genCode();
         }
 

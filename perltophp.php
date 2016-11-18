@@ -23,13 +23,15 @@
 
     ini_set('memory_limit', '1G');
 
-    $options = getopt('i:o:q');
+    $options = getopt('i:o:qv');
     $fn = $options['i'];
     $outFn = get_in($options, 'o');
     $quietOpt = isset($options['q']);
+    $verboseOpt = isset($options['v']);
 
     $cvt = new Converter;
     $cvt->setQuiet($quietOpt);
+    $cvt->setVerbose($verboseOpt);
     $cvt->readFile($fn);
 
     $ppiFn = ! empty($outFn) ? "$outFn.ppi" : "$fn.ppi";
