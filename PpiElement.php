@@ -45,7 +45,7 @@ class PpiElement
         18 => [ '?:' ],
         19 => [ '=', '+=', '-=', '*=', 'etc.', 'goto', 'last', 'next', 'redo', 'dump' ],
         20 => [ ',', '=>' ],
-        21 => [ 'list operators (rightward)' ],
+        21 => [ 'list_operators' ],
         22 => [ 'not' ],
         23 => [ 'and' ],
         24 => [ 'or', 'xor' ],
@@ -774,6 +774,7 @@ repeat:
     public function getPrecedence()
     {
         static $oprPrec = null;
+        $listOperators = [ 'sort' ];
 
         if ($oprPrec === null) {
             $oprPrec = [];
@@ -787,6 +788,8 @@ repeat:
         $token = $this->startContent ?: $this->content;
         if ($this instanceof PpiTokenRegexp) {
             $token = '//';
+        } elseif (in_array($token, $listOperators)) {
+            $token = 'list_operators';
         } elseif (! isset($oprPrec[$token])
                     && preg_match('/^-{0,1}\w+$/', $this->content)) {
             // Bareword, possible function

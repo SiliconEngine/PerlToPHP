@@ -608,9 +608,11 @@ PHP;
             $perl = <<<"PERL"
                 \$a = {$func['perl']} \$b;
                 \$a = {$func['perl']} @\$b;
+                \$a = {$func['perl']}(\$b);
 PERL;
 
             $php = <<<"PHP"
+                \$a = {$func['php']}(\$b);
                 \$a = {$func['php']}(\$b);
                 \$a = {$func['php']}(\$b);
 PHP;
@@ -671,6 +673,26 @@ PHP;
             $this->doConvertTest($perl, $php);
         }
     }
+
+    /**
+     * Test sort function
+     */
+    public function testSort()
+    {
+        $perl = <<<"PERL"
+            @a = sort @b;
+            @a = sort(@b);
+            @a = sort @a, @b;
+PERL;
+
+        $php = <<<"PHP"
+            \$a = \$fake/*check:sort(\$b)*/;
+            \$a = \$fake/*check:sort(\$b)*/;
+            \$a = \$fake/*check:sort(\$a, \$b)*/;
+PHP;
+        $this->doConvertTest($perl, $php);
+    }
+
 
     /**
      * Test empty shift
@@ -1211,6 +1233,23 @@ PERL;
 
         $php = <<<'PHP'
             func(1, 2, 3 );
+PHP;
+        $this->doConvertTest($perl, $php);
+    }
+
+    /**
+     * Test hash cast
+     */
+    public function testHashCast()
+    {
+        $perl = <<<'PERL'
+            %o = %{$match->{key}};
+            %o = %$match;
+PERL;
+
+        $php = <<<'PHP'
+            $o = /*check:%*/$match['key'];
+            $o = /*check:%*/$match;
 PHP;
         $this->doConvertTest($perl, $php);
     }

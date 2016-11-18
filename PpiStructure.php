@@ -196,12 +196,14 @@ class PpiStructureList extends PpiStructure
                 // In perl, you can have a comma at the end, but no in PHP.
                 // Kill any stray commas.
 
-                $obj = $this->nextSibling->prev;
-                while ($obj->isWs()) {
-                    $obj = $obj->prev;
-                }
-                if ($obj->content == ',') {
-                    $obj->cancel();
+                if ($this->nextSibling !== null) {
+                    $obj = $this->nextSibling->prev;
+                    while ($obj !== null && $obj->isWs()) {
+                        $obj = $obj->prev;
+                    }
+                    if ($obj !== null && $obj->content == ',') {
+                        $obj->cancel();
+                    }
                 }
 
                 return parent::genCode();

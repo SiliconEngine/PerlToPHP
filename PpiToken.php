@@ -260,6 +260,16 @@ class PpiTokenCast extends PpiToken
                 }
                 break;
 
+            case '%':
+                // Comment out hash cast and remove braces if any
+                $this->content = "/*check:{$this->content}*/";
+                if ($this->next->startContent == '{') {
+                    $this->next->startContent = '';
+                    $this->next->endContent = '';
+                }
+
+                break;
+
             default:
                 $this->content = "/*check:{$this->content}*/";
                 break;
@@ -731,25 +741,28 @@ class PpiTokenWord extends PpiToken
                 case 'my':          $this->tokenWordMy();           break;
                 case 'split':       $this->tokenWordSplit();        break;
                 case 'shift':
-                    $this->tokenWordWithArg('array_shift');
+                    $this->tokenWordWithArg('array_shift(%s)');
                     break;
                 case 'pop':
-                    $this->tokenWordWithArg('array_pop');
+                    $this->tokenWordWithArg('array_pop(%s)');
                     break;
                 case 'uc':
-                    $this->tokenWordWithArg('strtoupper');
+                    $this->tokenWordWithArg('strtoupper(%s)');
                     break;
                 case 'lc':
-                    $this->tokenWordWithArg('strtolower');
+                    $this->tokenWordWithArg('strtolower(%s)');
                     break;
                 case 'delete':
-                    $this->tokenWordWithArg('unset');
+                    $this->tokenWordWithArg('unset(%s)');
                     break;
                 case 'keys':
-                    $this->tokenWordWithArg('array_keys');
+                    $this->tokenWordWithArg('array_keys(%s)');
                     break;
                 case 'close':
-                    $this->tokenWordWithArg('close');
+                    $this->tokenWordWithArg('close(%s)');
+                    break;
+                case 'sort':
+                    $this->tokenWordWithArg('$fake/*check:sort(%s)*/');
                     break;
                 case 'unshift':
                     $this->content = 'array_unshift';
@@ -761,7 +774,7 @@ class PpiTokenWord extends PpiToken
                     $this->content = 'strlen';
                     break;
                 case 'defined':
-                    $this->tokenWordWithArg('/*check*/isset');
+                    $this->tokenWordWithArg('/*check*/isset(%s)');
                     break;
                 case 'sub':         $this->tokenWordSub();          break;
                 case 'package':     $this->tokenWordPackage();      break;
@@ -1078,7 +1091,7 @@ class PpiTokenWord extends PpiToken
     /**
      * Check for things like "pop @x"
      */
-    private function tokenWordWithArg($newWord)
+    private function tokenWordWithArg($pattern)
     {
         // Check for case like "$a = func(shift);". Just mark it.
         // Or case like = shift;
@@ -1087,14 +1100,20 @@ class PpiTokenWord extends PpiToken
             return;
         }
 
-        // If has parentheses, don't need to do anything
+        // If has parentheses, just get interior content
         if ($this->next instanceof PpiStructureList) {
-            return;
+            $code = $this->next->getRecursiveContent();
+            $this->next->cancelAll();
+        } else {
+            list($code, $right) = $this->getRightArg();
         }
 
-        list($code, $right) = $this->getRightArg();
+        // Strip possible parentheses
+        if (substr($code, 0, 1) == '(') {
+            $code = substr($code, 1, -1);
+        }
 
-        $this->content = "$newWord(" . trim($code) . ")";
+        $this->content = sprintf($pattern, trim($code));
         return;
     }
 
