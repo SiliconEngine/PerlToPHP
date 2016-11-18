@@ -26,7 +26,13 @@ class Converter
     public function readFile(
         $fn)
     {
-        $pipe = popen("perl -e 'use PPI;' -e 'use PpiDumper;' -e 'PpiDumper->new(PPI::Document->new(\"$fn\"))->print;'", 'r');
+        if (! file_exists($fn)) {
+            print "File not found: $fn\n";
+            exit(0);
+        }
+
+        $path = realpath(dirname(__FILE__));
+        $pipe = popen("$path/dumplex.pl $fn", 'r');
         $n = 0;
         $lineNum = 1;
 
