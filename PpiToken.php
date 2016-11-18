@@ -628,8 +628,9 @@ class PpiTokenSymbol extends PpiToken
                 $this->content = $path . $this->cvtCamelCase($varName);
             }
 
-            // Translate special object reference name
-            if ($this->content == '$self') {
+            // Translate special object reference name, unless it's
+            // an assignment
+            if ($this->content == '$self' && $this->next->content != '=') {
                 $this->content = '$this';
             }
         }
@@ -807,6 +808,9 @@ class PpiTokenWord extends PpiToken
                 case 'chomp':
                     $this->tokenLValueWithArg("/*check:chomp*/preg_replace('/\\n$/', '', %s)");
                     break;
+                case 'eval':
+                    $this->tokenWordEval();
+                    break;
                 }
             } else {
                 print "Not statement: {$this->content}\n";
@@ -943,19 +947,42 @@ class PpiTokenWord extends PpiToken
         return;
     }
 
+    /**
+     * 'eval' keyword
+     */
+    private function tokenWordEval()
+    {
+        // eval { code };
+        // Just remove the eval and braces.
+
+        $this->content = "/*check:eval*/";
+        $obj = $this->next;
+        if ($obj->startContent == '{') {
+            $obj->startContent = '';
+            $obj->endContent = '';
+            $obj->preWs = '';
+            $obj->endPreWs = '';
+        }
+
+        return parent::genCode();
+    }
+
     private function tokenWordPackageName()
     {
         // Convert package name to class name
 
         $name = $this->content;
-        $this->content = $this->cvtPackageName($this->content);
 
         // If ends in 'new' and this is an assignment, convert to
         // "= new class"
-        if (strtolower(substr($this->content, -4, 4)) == '\new' &&
+        $new = '';
+        if (strtolower(substr($name, -5, 5)) == '::new' &&
                 substr($this->prev->content, -1, 1) == '=') {
-            $this->content = "new " . substr($this->content, 0, -4);
+            $new = "new ";
+            $name = substr($name, 0, -5);
         }
+
+        $this->content = $new . $this->cvtPackageName($name);
 
         return parent::genCode();
     }
@@ -1126,30 +1153,9 @@ class PpiTokenWord extends PpiToken
         $neg = $this->content == 'unless';
         $needSwitch = false;
 
-        // Scan in front to see if we need a reverse of "expr if (cond);"
-        $obj = $this;
-        while (($obj = $obj->prev) !== null) {
-            if ($obj->isWs()) {
-                continue;
-            }
-
-            if ($obj instanceof PpiStructureBlock) {
-                break;
-            }
-
-            if ($obj->isSemicolon()) {
-                break;
-            }
-
-            if (! empty($obj->content)) {
-                // Some sort of code before
-
-                $needSwitch = true;
-                break;
-            }
-        }
-
-        if (! $needSwitch) {
+        // Check in front to see if we need a reverse of "expr if (cond);"
+        $obj = $this->getPrevSiblingNonWs();
+        if ($obj === null) {
             // No code before the if/unless statement. If 'unless', then we
             // need to reverse the conditional.
             if ($this->content == 'unless') {
@@ -1201,8 +1207,9 @@ class PpiTokenWord extends PpiToken
             "$indent}";
 
         // If token after right expression is a semicolon, kill it.
-        if ($right->nextSibling->isSemicolon()) {
-            $right->nextSibling->cancel();
+        $obj = $right->getNextSiblingUpTree();
+        if ($obj->isSemicolon()) {
+            $obj->cancel();
         }
 
         return;

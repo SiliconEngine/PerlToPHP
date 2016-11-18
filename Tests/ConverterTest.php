@@ -237,9 +237,9 @@ PHP;
     }
 
     /**
-     * Test flipping if around
+     * Test reversing if around
      */
-    public function testIfFlip1()
+    public function testIfReverse1()
     {
         $perl = <<<'PERL'
     $a = $b if ($a == 1);        
@@ -251,6 +251,24 @@ PERL;
     }        
 PHP;
         $this->doConvertTest($perl, $php);
+
+        // Test if has label before (bug case: should NOT reverse)
+        $perl = <<<'PERL'
+EXIT:
+            if (@{$hash{Test}} == 0) {
+                print;
+            }
+PERL;
+
+        $php = <<<'PHP'
+EXIT_LABEL:
+            if (count($hash['Test']) == 0) {
+                print;
+            }
+PHP;
+        $this->doConvertTest($perl, $php);
+
+
     }
 
     /**

@@ -172,7 +172,7 @@ class PpiStructureList extends PpiStructure
     {
         if (! $this->converted) {
             $prev = $this->getPrevNonWs();
-            $nextSib = $this->getNextSiblingNonWs();
+            $nextSib = $this->getNextSiblingUpTree();
             if ($nextSib !== null && $nextSib->content == '=') {
                 // list l-value
 

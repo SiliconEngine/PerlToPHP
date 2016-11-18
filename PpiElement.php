@@ -53,6 +53,63 @@ class PpiElement
         30 => [ ';' ]
     ];
 
+    private $phpReservedWords = [
+        'abstract', 'and', 'array', 'as', 'break', 'callable', 'case',
+        'catch', 'class', 'clone', 'const', 'continue', 'declare',
+        'default', 'die', 'do', 'echo', 'else', 'elseif', 'empty',
+        'enddeclare', 'endfor', 'endforeach', 'endif', 'endswitch',
+        'endwhile', 'eval', 'exit', 'extends', 'final', 'finally',
+        'for', 'foreach', 'function', 'global', 'goto', 'if', 'implements',
+        'include', 'include_once', 'instanceof', 'insteadof', 'interface',
+        'isset', 'list', 'namespace', 'new', 'or', 'print', 'private',
+        'protected', 'public', 'require', 'require_once', 'return',
+        'static', 'switch', 'throw', 'trait', 'try', 'unset', 'use',
+        'var', 'while', 'xor', 'yield'
+    ];
+
+    private $perlReservedWords = [ 'length', 'setpgrp', 'endgrent', 
+        'link', 'setpriority', 'endhostent', 'listen', 'setprotoent', 
+        'endnetent', 'local', 'setpwent', 'endprotoent', 'localtime', 
+        'setservent', 'endpwent', 'log', 'setsockopt', 'endservent', 
+        'lstat', 'shift', 'eof', 'map', 'shmctl', 'eval', 'mkdir', 'shmget', 
+        'exec', 'msgctl', 'shmread', 'exists', 'msgget', 'shmwrite', 
+        'exit', 'msgrcv', 'shutdown', 'fcntl', 'msgsnd', 'sin', 'fileno', 
+        'my', 'sleep', 'flock', 'next', 'socket', 'fork', 'not', 'socketpair', 
+        'format', 'oct', 'sort', 'formline', 'open', 'splice', 'getc', 
+        'opendir', 'split', 'getgrent', 'ord', 'sprintf', 'getgrgid', 
+        'our', 'sqrt', 'getgrnam', 'pack', 'srand', 'gethostbyaddr', 
+        'pipe', 'stat', 'gethostbyname', 'pop', 'state', 'gethostent', 
+        'pos', 'study', 'getlogin', 'print', 'substr', 'getnetbyaddr', 
+        'printf', 'symlink', 'abs', 'getnetbyname', 'prototype', 'syscall', 
+        'accept', 'getnetent', 'push', 'sysopen', 'alarm', 'getpeername', 
+        'quotemeta', 'sysread', 'atan2', 'getpgrp', 'rand', 'sysseek', 
+        'AUTOLOAD', 'getppid', 'read', 'system', 'BEGIN', 'getpriority', 
+        'readdir', 'syswrite', 'bind', 'getprotobyname', 'readline', 
+        'tell', 'binmode', 'getprotobynumber', 'readlink', 'telldir', 
+        'bless', 'getprotoent', 'readpipe', 'tie', 'break', 'getpwent', 
+        'recv', 'tied', 'caller', 'getpwnam', 'redo', 'time', 'chdir', 
+        'getpwuid', 'ref', 'times', 'CHECK', 'getservbyname', 'rename', 
+        'truncate', 'chmod', 'getservbyport', 'require', 'uc', 'chomp', 
+        'getservent', 'reset', 'ucfirst', 'chop', 'getsockname', 'return', 
+        'umask', 'chown', 'getsockopt', 'reverse', 'undef', 'chr', 'glob', 
+        'rewinddir', 'UNITCHECK', 'chroot', 'gmtime', 'rindex', 'unlink', 
+        'close', 'goto', 'rmdir', 'unpack', 'closedir', 'grep', 'say', 
+        'unshift', 'connect', 'hex', 'scalar', 'untie', 'cos', 'index', 
+        'seek', 'use', 'crypt', 'INIT', 'seekdir', 'utime', 'dbmclose', 
+        'int', 'select', 'values', 'dbmopen', 'ioctl', 'semctl', 'vec', 
+        'defined', 'join', 'semget', 'wait', 'delete', 'keys', 'semop', 
+        'waitpid', 'DESTROY', 'kill', 'send', 'wantarray', 'die', 'last', 
+        'setgrent', 'warn', 'dump', 'lc', 'sethostent', 'write', 'each',
+        'lcfirst', 'setnetent',
+        '__DATA__', 'else', 'lock', 'qw', '__END__', 'elsif', 'lt', 'qx',
+        '__FILE__', 'eq', 'm', 's', '__LINE__', 'exp', 'ne', 'sub',
+        '__PACKAGE__', 'for', 'no', 'tr', 'and', 'foreach', 'or', 'unless',
+        'cmp', 'ge', 'package', 'until', 'continue', 'gt', 'q', 'while',
+        'CORE', 'if', 'qq', 'xor', 'do', 'le', 'qr', 'y', 'STDERR'
+    ];
+
+
+
     /**
      * What context the node is in: neutral, array, hash, scalar, string
      */
@@ -351,9 +408,10 @@ repeat:
     }
 
     /**
-     * Get next sibling that isn't whitespace
+     * Get next sibling that isn't whitespace. If hits end, goes up to
+     * parent to continue.
      */
-    public function getNextSiblingNonWs()
+    public function getNextSiblingUpTree()
     {
         $obj = $this;
         do {
@@ -362,6 +420,19 @@ repeat:
             } else {
                 $obj = $obj->nextSibling;
             }
+        } while ($obj !== null && $obj instanceof PpiTokenWhitespace);
+
+        return $obj;
+    }
+
+    /**
+     * Get next sibling that isn't whitespace. Returns null if hit end.
+     */
+    public function getNextSiblingNonWs()
+    {
+        $obj = $this;
+        do {
+            $obj = $obj->nextSibling;
         } while ($obj !== null && $obj instanceof PpiTokenWhitespace);
 
         return $obj;
@@ -547,57 +618,21 @@ repeat:
     public function cvtPackageName(
         $name)
     {
-        $name = str_replace('::', ' ', $name);
-        return str_replace(' ', '\\', ucwords($name));
+        $words = explode('::', $name);
+        $words = array_map(function ($w) {
+            if (in_array(strtolower($w), $this->phpReservedWords)) {
+                return 'X' . strtolower($w);
+            }
+            return ucfirst($w);
+        }, $words);
+
+        return implode('\\', $words);
     }
-
-
-    private $reservedWords = [ 'length', 'setpgrp', 'endgrent', 
-        'link', 'setpriority', 'endhostent', 'listen', 'setprotoent', 
-        'endnetent', 'local', 'setpwent', 'endprotoent', 'localtime', 
-        'setservent', 'endpwent', 'log', 'setsockopt', 'endservent', 
-        'lstat', 'shift', 'eof', 'map', 'shmctl', 'eval', 'mkdir', 'shmget', 
-        'exec', 'msgctl', 'shmread', 'exists', 'msgget', 'shmwrite', 
-        'exit', 'msgrcv', 'shutdown', 'fcntl', 'msgsnd', 'sin', 'fileno', 
-        'my', 'sleep', 'flock', 'next', 'socket', 'fork', 'not', 'socketpair', 
-        'format', 'oct', 'sort', 'formline', 'open', 'splice', 'getc', 
-        'opendir', 'split', 'getgrent', 'ord', 'sprintf', 'getgrgid', 
-        'our', 'sqrt', 'getgrnam', 'pack', 'srand', 'gethostbyaddr', 
-        'pipe', 'stat', 'gethostbyname', 'pop', 'state', 'gethostent', 
-        'pos', 'study', 'getlogin', 'print', 'substr', 'getnetbyaddr', 
-        'printf', 'symlink', 'abs', 'getnetbyname', 'prototype', 'syscall', 
-        'accept', 'getnetent', 'push', 'sysopen', 'alarm', 'getpeername', 
-        'quotemeta', 'sysread', 'atan2', 'getpgrp', 'rand', 'sysseek', 
-        'AUTOLOAD', 'getppid', 'read', 'system', 'BEGIN', 'getpriority', 
-        'readdir', 'syswrite', 'bind', 'getprotobyname', 'readline', 
-        'tell', 'binmode', 'getprotobynumber', 'readlink', 'telldir', 
-        'bless', 'getprotoent', 'readpipe', 'tie', 'break', 'getpwent', 
-        'recv', 'tied', 'caller', 'getpwnam', 'redo', 'time', 'chdir', 
-        'getpwuid', 'ref', 'times', 'CHECK', 'getservbyname', 'rename', 
-        'truncate', 'chmod', 'getservbyport', 'require', 'uc', 'chomp', 
-        'getservent', 'reset', 'ucfirst', 'chop', 'getsockname', 'return', 
-        'umask', 'chown', 'getsockopt', 'reverse', 'undef', 'chr', 'glob', 
-        'rewinddir', 'UNITCHECK', 'chroot', 'gmtime', 'rindex', 'unlink', 
-        'close', 'goto', 'rmdir', 'unpack', 'closedir', 'grep', 'say', 
-        'unshift', 'connect', 'hex', 'scalar', 'untie', 'cos', 'index', 
-        'seek', 'use', 'crypt', 'INIT', 'seekdir', 'utime', 'dbmclose', 
-        'int', 'select', 'values', 'dbmopen', 'ioctl', 'semctl', 'vec', 
-        'defined', 'join', 'semget', 'wait', 'delete', 'keys', 'semop', 
-        'waitpid', 'DESTROY', 'kill', 'send', 'wantarray', 'die', 'last', 
-        'setgrent', 'warn', 'dump', 'lc', 'sethostent', 'write', 'each',
-        'lcfirst', 'setnetent',
-        '__DATA__', 'else', 'lock', 'qw', '__END__', 'elsif', 'lt', 'qx',
-        '__FILE__', 'eq', 'm', 's', '__LINE__', 'exp', 'ne', 'sub',
-        '__PACKAGE__', 'for', 'no', 'tr', 'and', 'foreach', 'or', 'unless',
-        'cmp', 'ge', 'package', 'until', 'continue', 'gt', 'q', 'while',
-        'CORE', 'if', 'qq', 'xor', 'do', 'le', 'qr', 'y', 'STDERR'
-    ];
-
 
     public function isReservedWord(
         $word)
     {
-        return in_array($word, $this->reservedWords);
+        return in_array($word, $this->perlReservedWords);
     }
 
     public function fmtObj(
