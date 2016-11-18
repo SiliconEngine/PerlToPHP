@@ -765,6 +765,9 @@ class PpiTokenWord extends PpiToken
                 case 'sort':
                     $this->tokenWordWithArg('$fake/*check:sort(%s)*/');
                     break;
+                case 'grep':
+                    $this->tokenWordGrep();
+                    break;
                 case 'unshift':
                     $this->content = 'array_unshift';
                     break;
@@ -1249,27 +1252,30 @@ class PpiTokenWord extends PpiToken
         $obj = $this->next;
         if ($obj->content == 'my') {
             $obj->cancel();
-            $obj = $obj->next;
+            $obj = $obj->getNextNonWs();
         }
 
         // Next token should be the variable
         if (! ($obj instanceof PpiTokenSymbol)) {
             print "Foreach invalid variable token: " . get_class($obj) .
-                "content: {$obj->content}\n";
+                ", content: '{$obj->content}'\n";
             exit(1);
         }
         $var = $obj->content;
         $obj->cancel();
 
         // Next is expression in parenthesis
-        $obj = $obj->next;
+        $obj = $obj->getNextNonWs();
         if (! ($obj instanceof PpiStructureList)) {
             print "Foreach invalid expression token: " . get_class($obj) .
                 "content: {$obj->content}\n";
             exit(1);
         }
+        $expr = trim($obj->getRecursiveContent());
 
-        $expr = $obj->next->getRecursiveContent();
+        // Remove brackets or parentheses, if any
+        $expr = $this->stripParensOrBrackets($expr);
+
         $obj->cancelAll();
         $this->content = "foreach ($expr as $var)";
         return;
@@ -1349,6 +1355,21 @@ class PpiTokenWord extends PpiToken
             if (! in_array($label->content, [ 'if', 'unless' ])) {
                 $label->content = "/*check:{$label->content}*/";
             }
+        }
+    }
+
+    /**
+     * 'grep'
+     */
+    private function tokenWordGrep()
+    {
+        $obj = $this->getNextNonWs();
+        if ($obj instanceof PpiStructureBlock) {
+            $block = trim($obj->getRecursiveContent());
+            $obj->cancelAll();
+            list($var, $right) = $obj->getRightArg();
+            $var = $this->stripParensOrBrackets($var);
+            $this->content = "array_filter($var, function (\$fake) $block)";
         }
     }
 

@@ -957,4 +957,12 @@ repeat:
         return [ $content, $last ];
     }
 
+    /**
+     * Utility function to remove a set of parentheses or brackets on ends
+     */
+    public function stripParensOrBrackets(
+        $s)
+    {
+        return trim(preg_replace('/[\[\(]+(.*)[\]\)]+/s', '\1', trim($s)));
+    }
 }

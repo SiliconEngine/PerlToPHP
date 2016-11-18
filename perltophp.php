@@ -23,9 +23,27 @@
 
     ini_set('memory_limit', '1G');
 
-    $options = getopt('i:o:qv');
-    $fn = $options['i'];
-    $outFn = get_in($options, 'o');
+    $options = [];
+    $fileList = [];
+    $newList = $argv;
+    foreach (array_splice($argv, 1) as $arg) {
+        if (substr($arg, 0, 1) == '-') {
+            break;
+        }
+        $fileList[] = $arg;
+    }
+
+    if (count($fileList) > 0) {
+        // In quick parameter mode
+
+        $fn = $fileList[0];
+        $outFn = get_in($fileList, 1);
+    } else {
+        $options = getopt('i:o:qv');
+        $fn = $options['i'];
+        $outFn = get_in($options, 'o');
+    }
+
     $quietOpt = isset($options['q']);
     $verboseOpt = isset($options['v']);
 

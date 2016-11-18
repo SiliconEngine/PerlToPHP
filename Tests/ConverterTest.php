@@ -234,6 +234,21 @@ PERL;
             }        
 PHP;
         $this->doConvertTest($perl, $php);
+
+        // Test with line break
+        $perl = <<<'PERL'
+            foreach my $phone (
+                $addresses->getElementsByTagName('Phone')) {
+                print;
+            }
+PERL;
+
+        $php = <<<'PHP'
+            foreach ($addresses->getElementsByTagName('Phone') as $phone) {
+                print;
+            }
+PHP;
+        $this->doConvertTest($perl, $php);
     }
 
     /**
@@ -1268,6 +1283,25 @@ PERL;
         $php = <<<'PHP'
             $o = /*check:%*/$match['key'];
             $o = /*check:%*/$match;
+PHP;
+        $this->doConvertTest($perl, $php);
+    }
+
+    /**
+     * Test grep
+     */
+    public function testGrep()
+    {
+        $perl = <<<'PERL'
+            @a = grep { @_ ne '' } @list;
+            $a = join(' ', grep { @_ ne '' } @list);
+            $a = join(' ', grep { @_ ne '' } @{$abc->{def}});
+PERL;
+
+        $php = <<<'PHP'
+            $a = array_filter($list, function ($fake) { $fake/*check:@*/ !== '' });
+            $a = join(' ', array_filter($list, function ($fake) { $fake/*check:@*/ !== '' }));
+            $a = join(' ', array_filter($abc['def'], function ($fake) { $fake/*check:@*/ !== '' }));
 PHP;
         $this->doConvertTest($perl, $php);
     }
