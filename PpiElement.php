@@ -49,7 +49,7 @@ class PpiElement
         22 => [ 'not' ],
         23 => [ 'and' ],
         24 => [ 'or', 'xor' ],
-        25 => [ 'if', 'until' ],
+        25 => [ 'if', 'unless' ],
         30 => [ ';' ]
     ];
 
@@ -635,6 +635,12 @@ repeat:
         return in_array($word, $this->perlReservedWords);
     }
 
+    public function isPhpReservedWord(
+        $word)
+    {
+        return in_array($word, $this->phpReservedWords);
+    }
+
     public function fmtObj(
         $level = 0)
     {
@@ -963,6 +969,8 @@ repeat:
     public function stripParensOrBrackets(
         $s)
     {
+        // Test if there are matching parentheses or brackets around
+        // expression.
         return trim(preg_replace('/[\[\(]+(.*)[\]\)]+/s', '\1', trim($s)));
     }
 }

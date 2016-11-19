@@ -552,6 +552,7 @@ class PpiTokenSymbol extends PpiToken
     {
         switch (substr($this->content, 0, 1)) {
         default:
+        case '&':
         case '$':
             // Scalar variable, may or may not be scalar expression
             $this->setContextChain('scalar');
@@ -765,6 +766,9 @@ class PpiTokenWord extends PpiToken
                 case 'sort':
                     $this->tokenWordWithArg('$fake/*check:sort(%s)*/');
                     break;
+                case 'bless':
+                    $this->tokenWordCommentOut();
+                    break;
                 case 'grep':
                     $this->tokenWordGrep();
                     break;
@@ -848,12 +852,15 @@ class PpiTokenWord extends PpiToken
         } elseif ($parent instanceof PpiStatementSub) {
             // Function context
 
-            // Get the name of the function
             $argList = [];
             $obj = $this->getNextNonWs();
 
             // Get the name of the function
             $name = $this->cvtCamelCase($obj->content);
+            if ($this->isPhpReservedWord($name)) {
+                $name = 'x' . ucfirst($name);
+            }
+
             $obj->cancel();
             $obj = $obj->getNextNonWs();
 
@@ -949,6 +956,30 @@ class PpiTokenWord extends PpiToken
 
         return;
     }
+
+    /**
+     * Comment out whole thing
+     */
+    private function tokenWordCommentOut()
+    {
+        $this->content = "check:{$this->content}";
+        $obj = $this;
+
+        // The next word is the argument and then just comment out
+        // anything that follows.
+        $newObj = $obj->insertLeftText('/*');
+        $newObj->preWs = $obj->preWs;
+        $obj->preWs = '';
+
+        while (! $obj->isSemicolon()) {
+            // Set to just leave contents alone
+            $obj->converted = true;
+            $obj = $obj->next;
+        }
+        $obj->insertLeftText('*/');
+        return;
+    }
+
 
     /**
      * 'eval' keyword
@@ -1191,7 +1222,12 @@ class PpiTokenWord extends PpiToken
         $this->preWs = $left->preWs;
 
         $rightText = trim(preg_replace('/;\s*$/', '', $rightText));
-        if (substr($rightText, 0, 1) != '(') {
+
+        // If expression not surrounded by parentheses, then add them.
+        // Note we need to check if it's the entire expression for cases like:
+        //     $a = $b if ($c) = func();
+        // expression, then rremove the parentheses.
+        if (substr($rightText, 0, 1) != '(' || $right !== $this->nextSibling) {
             $rightText = "($rightText)";
         }
         if ($neg) {
@@ -1367,6 +1403,12 @@ class PpiTokenWord extends PpiToken
         if ($obj instanceof PpiStructureBlock) {
             $block = trim($obj->getRecursiveContent());
             $obj->cancelAll();
+
+            // Make sure there's a semicolon at end of function text.
+            if (! preg_match('/;\s*\}$/', $block)) {
+                $block = preg_replace('/(\s*\}$)/', ';\1', $block);
+            }
+
             list($var, $right) = $obj->getRightArg();
             $var = $this->stripParensOrBrackets($var);
             $this->content = "array_filter($var, function (\$fake) $block)";

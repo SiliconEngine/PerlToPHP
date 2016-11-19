@@ -1,43 +1,29 @@
 <?php
 
-class PpiStructure extends PpiNode { }
 class PpiStructureGiven extends PpiStructure { }
 class PpiStructureWhen extends PpiStructure { }
 class PpiStructureUnknown extends PpiStructure { }
 
-
 /**
- * Block - note that this isn't only code blocks, can by array/hash context.
+ * Block - note that this isn't only code blocks, can be array/hash context.
  */
 class PpiStructureBlock extends PpiStructure { }
 
-/**
- * Condition structure
- */
-class PpiStructureCondition extends PpiStructure
-{
-    public function anaContext()
-    {
-        // Has to be a logical
-        $this->setContext('scalar');
-    }
-}
 
-class PpiStructureFor extends PpiStructure
-{
-    public function anaContext()
-    {
-        // For has kind of a list
-        $this->setContext('array');
-    }
-}
 
-/**
- * Parentheses: functions, lists, etc.
- */
-class PpiStructureList extends PpiStructure
+
+class PpiStructure extends PpiNode
 {
-    public function anaContext()
+
+    /**
+     * anaContext used with code parenthesis, like PpiStructureList
+     * and PpiStructureCondition.
+     *
+     * PpiStructureCondition can happen with:
+     *    print if ($var) = func();
+     * I think this might actually be a bug in PPI, but doesn't matter.
+     */
+    protected function AnaCodeContext()
     {
         // Methods we can use:
         //
@@ -112,6 +98,14 @@ class PpiStructureList extends PpiStructure
         //    ($a, $b, $c) = (1, 2, 3) -> list($a, $b, $c) = [1, 2, 3]
         //    my ($a, $b, $c) = (1, 2, 3) -> list($a, $b, $c) = [1, 2, 3]
 
+
+        // If equal sign follows parentheses, then it's an array.
+        $node = $this->getNextSiblingUpTree();
+        if ($node->content == '=') {
+            $this->setContext('array');
+            return;
+        }
+
         $node = $this;
         $context = null;
         for(;;) {
@@ -130,25 +124,8 @@ class PpiStructureList extends PpiStructure
                 }
             }
 
-            if ($node === null || $node->isNewline()) {
-                // Hit front of line means it might be a list assignment
-                // ($a, $b) = ... Check if list of variables.
-                // Note need to skip down past PpiStatementExpression
-
-                $foundNonSymbol = false;
-                foreach ($this->next->children as $child) {
-                    if (! ($child instanceof PpiTokenSymbol ||
-                            $child->content == ',')) {
-                        $foundNonSymbol = true;
-                        break;
-                    }
-                }
-
-                if ($foundNonSymbol) {
-                    $context = 'scalar';
-                } else {
-                    $context = 'array';
-                }
+            if ($node === null) {
+                $context = 'scalar';
                 break;
             }
 
@@ -168,7 +145,7 @@ class PpiStructureList extends PpiStructure
         return;
     }
 
-    public function genCode()
+    protected function genStructureCode()
     {
         if (! $this->converted) {
             $prev = $this->getPrevNonWs();
@@ -190,8 +167,9 @@ class PpiStructureList extends PpiStructure
 
             // If a regular function call, don't change (ex: word('a', 'b') ).
             // Exception: return ('a', 'b')
-            if ($this->prev instanceof PpiTokenWord &&
-                            $this->prev->content != 'return') {
+            if (($this->prev instanceof PpiTokenWord
+                    || $this->prev instanceof PpiTokenSymbol)
+                    && $this->prev->content != 'return') {
 
                 // In perl, you can have a comma at the end, but no in PHP.
                 // Kill any stray commas.
@@ -224,6 +202,49 @@ class PpiStructureList extends PpiStructure
         }
 
         return parent::genCode();
+    }
+
+}
+
+
+/**
+ * Condition structure
+ */
+class PpiStructureCondition extends PpiStructure
+{
+    public function anaContext()
+    {
+        $this->anaCodeContext();
+    }
+
+    public function genCode()
+    {
+        return $this->genStructureCode();
+    }
+}
+
+class PpiStructureFor extends PpiStructure
+{
+    public function anaContext()
+    {
+        // For has kind of a list
+        $this->setContext('array');
+    }
+}
+
+/**
+ * Parentheses: functions, lists, etc.
+ */
+class PpiStructureList extends PpiStructure
+{
+    public function anaContext()
+    {
+        $this->anaCodeContext();
+    }
+
+    public function genCode()
+    {
+        return $this->genStructureCode();
     }
 }
 

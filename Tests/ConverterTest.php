@@ -252,18 +252,18 @@ PHP;
     }
 
     /**
-     * Test reversing if around
+     * Test reversing if, things like: "$a = $b if $c == $d;
      */
     public function testIfReverse1()
     {
         $perl = <<<'PERL'
-    $a = $b if ($a == 1);        
+            $a = $b if ($a == 1);        
 PERL;
 
         $php = <<<'PHP'
-    if ($a == 1) {
-        $a = $b;
-    }        
+            if ($a == 1) {
+                $a = $b;
+            }        
 PHP;
         $this->doConvertTest($perl, $php);
 
@@ -744,6 +744,23 @@ PHP;
         $this->doConvertTest($perl, $php);
     }
 
+    /**
+     * Check function call
+     */
+    public function checkFuncCall()
+    {
+        $perl = <<<'PERL'
+            $a = func();
+            $b = &func();
+PERL;
+
+        $php = <<<'PHP'
+            $a = func();
+            $b = func();
+PHP;
+        $this->doConvertTest($perl, $php);
+    }
+
 
     /**
      * Check 'elsif'
@@ -928,7 +945,7 @@ PERL;
 PHP;
         $this->doConvertTest($perl, $php);
 
-        // Do 'switcharound' case.
+        // Do 'switcharound' reversal case.
         $perl = <<<'PERL'
             print unless ($a = $b);
 PERL;
@@ -936,6 +953,26 @@ PERL;
         $php = <<<'PHP'
             if (! ($a = $b)) {
                 print;
+            }
+PHP;
+        $this->doConvertTest($perl, $php);
+
+        // Reversal case where we need parentheses
+        $perl = <<<'PERL'
+            $a = $b unless ($c = func());
+            $a = $b unless $c = func();
+            $a = $b unless ($c) = func();
+PERL;
+
+        $php = <<<'PHP'
+            if (! ($c = func())) {
+                $a = $b;
+            }
+            if (! ($c = func())) {
+                $a = $b;
+            }
+            if (! (list($c) = func())) {
+                $a = $b;
             }
 PHP;
         $this->doConvertTest($perl, $php);
@@ -1294,14 +1331,16 @@ PHP;
     {
         $perl = <<<'PERL'
             @a = grep { @_ ne '' } @list;
+            @a = grep { @_ ne ''; } @list;
             $a = join(' ', grep { @_ ne '' } @list);
-            $a = join(' ', grep { @_ ne '' } @{$abc->{def}});
+            $a = join(' ', grep { @_ ne ''; } @{$abc->{def}});
 PERL;
 
         $php = <<<'PHP'
-            $a = array_filter($list, function ($fake) { $fake/*check:@*/ !== '' });
-            $a = join(' ', array_filter($list, function ($fake) { $fake/*check:@*/ !== '' }));
-            $a = join(' ', array_filter($abc['def'], function ($fake) { $fake/*check:@*/ !== '' }));
+            $a = array_filter($list, function ($fake) { $fake/*check:@*/ !== ''; });
+            $a = array_filter($list, function ($fake) { $fake/*check:@*/ !== ''; });
+            $a = join(' ', array_filter($list, function ($fake) { $fake/*check:@*/ !== ''; }));
+            $a = join(' ', array_filter($abc['def'], function ($fake) { $fake/*check:@*/ !== ''; }));
 PHP;
         $this->doConvertTest($perl, $php);
     }
