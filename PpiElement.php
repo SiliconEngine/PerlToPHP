@@ -983,4 +983,24 @@ repeat:
         // expression.
         return trim(preg_replace('/[\[\(]+(.*)[\]\)]+/s', '\1', trim($s)));
     }
+
+    /**
+     * Check if current token is a function word
+     */
+    public function isFunctionName()
+    {
+        if ($this instanceof PpiTokenWord
+                        && preg_match('/^\w+$/', $this->content)) {
+            return true;
+        }
+
+        if ($this instanceof PpiTokenSymbol
+                        && preg_match('/^&{0,1}\w+$/', $this->content)) {
+            return true;
+        }
+
+        return false;
+    }
+
+
 }

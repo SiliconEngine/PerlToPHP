@@ -249,6 +249,46 @@ PERL;
             }
 PHP;
         $this->doConvertTest($perl, $php);
+
+        // Test with argument list as a list
+        $perl = <<<'PERL'
+            foreach my $var (1, 2, 3) {
+                print;
+            }
+            foreach my $var (@$b) {
+                print;
+            }
+            foreach my $var ([1,2],[3,4]) {
+                print;
+            }
+            foreach my $var ([1,2],[3,4]) {
+                print;
+            }
+            foreach my $var (&func(1)) {
+                print;
+            }
+PERL;
+
+        $php = <<<'PHP'
+            foreach ([1, 2, 3] as $var) {
+                print;
+            }
+            foreach ($b as $var) {
+                print;
+            }
+            foreach ([[1,2],[3,4]] as $var) {
+                print;
+            }
+            foreach ([[1,2],[3,4]] as $var) {
+                print;
+            }
+            foreach (/*check*/func(1) as $var) {
+                print;
+            }
+PHP;
+        $this->doConvertTest($perl, $php);
+
+
     }
 
     /**
@@ -1360,7 +1400,7 @@ PERL;
         $php = <<<'PHP'
             $a = range(10, 30);
             $a = range(4 + 5, 6 + 7);
-            foreach (range(100, 105) as $rule_type) {
+            foreach (/*check*/range(100, 105) as $rule_type) {
             }
 PHP;
         $this->doConvertTest($perl, $php);

@@ -115,6 +115,8 @@ class PpiStructure extends PpiNode
                 $node = $node->getPrevSiblingNonWs();
             }
 
+            // Special case of foreach, where the second paren argument is
+            // implicitly an array: foreach $a (@$b)
             if ($node instanceof PpiTokenSymbol) {
                 $firstChild = $node->parent->children[0];
                 if ($firstChild instanceof PpiTokenWord
@@ -166,10 +168,13 @@ class PpiStructure extends PpiNode
             }
 
             // If a regular function call, don't change (ex: word('a', 'b') ).
-            // Exception: return ('a', 'b')
+            // Exception 1: return ('a', 'b') -> return ['a', 'b'];
+            // Exception 2: foreach my $a (...
+
             if (($this->prev instanceof PpiTokenWord
                     || $this->prev instanceof PpiTokenSymbol)
-                    && $this->prev->content != 'return') {
+                    && $this->prev->content != 'return'
+                    && $this->parent->children[0]->content != 'foreach') {
 
                 // In perl, you can have a comma at the end, but no in PHP.
                 // Kill any stray commas.

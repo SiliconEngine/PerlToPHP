@@ -1326,8 +1326,27 @@ class PpiTokenWord extends PpiToken
         }
         $expr = trim($obj->getRecursiveContent());
 
-        // Remove brackets or parentheses, if any
-        $expr = $this->stripParensOrBrackets($expr);
+        // Check if interior is list of scalars or an array, such as:
+        // Scalars: [1, 2, 3]
+        // Scalars: [[1,2], [3,4]]
+        // Array: [@b]
+
+        $first = $obj->children[0]->getNextNonWs();
+        if ($first->context == 'scalar' || $first->startContent == '[') {
+            // Keep the outer brackets.
+            // Exception: if first argument is a function, strip the brackets
+            // and add a '/*check*/'. Ex: foreach $a (func(1)):
+
+            if (preg_match('/^\[\s*\w+\(/', $expr)) {
+                $expr = $this->stripParensOrBrackets($expr);
+                $expr = "/*check*/$expr";
+            }
+
+        } else {
+            // Remove brackets or parentheses, if any
+
+            $expr = $this->stripParensOrBrackets($expr);
+        }
 
         $obj->cancelAll();
         $this->content = "foreach ($expr as $var)";
