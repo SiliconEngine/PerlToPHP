@@ -301,6 +301,10 @@ class PpiTokenOperator extends PpiToken
             $this->setContext($this->getPrevSiblingUpTree()->context);
             break;
 
+        case '..':
+            $this->setContext('array');
+            break;
+
         default:
             // Default to scalar
             $this->setContextChain('scalar');
@@ -346,6 +350,8 @@ class PpiTokenOperator extends PpiToken
                 return $this->cvtStrRepeat();
             case '-e':
                 return $this->cvtFileExists();
+            case '..':
+                return $this->cvtRange();
             }
         }
 
@@ -421,6 +427,17 @@ class PpiTokenOperator extends PpiToken
             }
         }
 
+        return parent::genCode();
+    }
+
+    /**
+     * Range operatior '..'
+     */
+    function cvtRange()
+    {
+        list($leftText, $left) = $this->getLeftArg();
+        list($rightText, $right) = $this->getRightArg();
+        $this->content = "range($leftText, $rightText)";
         return parent::genCode();
     }
 

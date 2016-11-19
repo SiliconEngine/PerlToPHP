@@ -1346,6 +1346,28 @@ PHP;
     }
 
     /**
+     * Range operator
+     */
+    public function testRangeOp()
+    {
+        $perl = <<<'PERL'
+            $a = 10 .. 30;
+            $a = 4 + 5 .. 6 + 7;
+            foreach my $rule_type (100..105) {
+            }
+PERL;
+
+        $php = <<<'PHP'
+            $a = range(10, 30);
+            $a = range(4 + 5, 6 + 7);
+            foreach (range(100, 105) as $rule_type) {
+            }
+PHP;
+        $this->doConvertTest($perl, $php);
+    }
+
+
+    /**
      * Template for new tests
      */
     public function name()

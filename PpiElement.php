@@ -191,6 +191,16 @@ class PpiElement
      */
     public function getRecursiveContent()
     {
+        // Call all the converters first, otherwise we might grab content
+        // before it can be modified by a converter.
+        $this->callRecursiveConverters();
+
+        // Get the content recursively.
+        return $this->recurseContent();
+    }
+
+    private function recurseContent()
+    {
         if (! $this->converted) {
             $this->genCode();
         }
@@ -200,7 +210,7 @@ class PpiElement
             $s = $this->preWs . $this->startContent . $this->content;
         }
         foreach ($this->children as $child) {
-            $s .= $child->getRecursiveContent();
+            $s .= $child->recurseContent();
         }
 
         if (! $this->cancel) {
