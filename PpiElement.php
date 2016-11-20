@@ -606,8 +606,8 @@ repeat:
     public function cvtCamelCase(
         $name)
     {
-        // Just keep single underscores
-        if ($name == '_') {
+        // Just keep names that start with underscore
+        if (substr($name, 0, 1) == '_') {
             return $name;
         }
 
@@ -621,8 +621,8 @@ repeat:
                 strtolower($name)))));
         }
 
-        // If no underscores, just leave it alone.
-        return $name;
+        // If no underscores, just lc first letter.
+        return lcfirst($name);
     }
 
     public function cvtPackageName(

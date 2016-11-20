@@ -1477,8 +1477,33 @@ PERL;
             ];
 PHP;
         $this->doConvertTest($perl, $php);
+    }
 
+    /**
+     * Convert names to camel case
+     */
+    public function testNameConversion()
+    {
+        $perl = <<<'PERL'
+            $ABC = 10;
+            $abc_def = 10;
+            $a = func_name(10);
+            $a = FuncName(10);
+            $a = FUNCNAME(10);
+            $a = _def(10);
+            $a = $_def;
+PERL;
 
+        $php = <<<'PHP'
+            $ABC = 10;
+            $abcDef = 10;
+            $a = funcName(10);
+            $a = funcName(10);
+            $a = FUNCNAME(10);
+            $a = _def(10);
+            $a = $_def;
+PHP;
+        $this->doConvertTest($perl, $php);
     }
 
 
