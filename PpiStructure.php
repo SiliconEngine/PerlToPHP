@@ -288,24 +288,16 @@ class PpiStructureConstructor extends PpiStructure
     public function genCode()
     {
         if (! $this->converted) {
-            $useMerge = false;
-            if ($this->startContent == '[') {
-                // If first element is an array, then use array_merge
-                for ($node = $this->next; $node != null; $node = $node->next) {
-                    if (! ($node instanceof PpiStatement || 
-                            $node instanceof PpiTokenWhitespace)) {
+            $childList = $this->getNextNonWs()->children;
+            $firstChild = count($childList) ? $childList[0]->skipWs() : null;
 
-                        if ($node->context == 'array') {
-                            $useMerge = true;
-                        }
-                        break;
-                    }
-                }
-            }
-
-            if ($useMerge) {
+            // If list with arrays (but not arrayref), then convert to
+            // array_merge
+            if ($firstChild !== null
+                    && in_array($firstChild->context, [ 'array', 'hash' ])) {
                 $this->startContent = '/*check*/array_merge(';
                 $this->endContent = ')';
+        
             } else {
                 // Might be brackets or braces, make them always brackets
                 $this->startContent = '[';

@@ -41,11 +41,11 @@ class ConverterTest extends \AbstractConverterTester
     public function testConvert1()
     {
         $perl = <<<'PERL'
-    @a = ( 'a', 'b' );
+            @a = ( 'a', 'b' );
 PERL;
 
         $php = <<<'PHP'
-    $a = [ 'a', 'b' ];
+            $a = [ 'a', 'b' ];
 PHP;
         $this->doConvertTest($perl, $php);
     }
@@ -54,11 +54,15 @@ PHP;
     public function testConvert2()
     {
         $perl = <<<'PERL'
-    $a = [ 'a', 'b' ];
+            $a = [ 'a', 'b' ];
+            $a = [ ];
+            $a = [];
 PERL;
 
         $php = <<<'PHP'
-    $a = [ 'a', 'b' ];
+            $a = [ 'a', 'b' ];
+            $a = [ ];
+            $a = [];
 PHP;
         $this->doConvertTest($perl, $php);
     }
@@ -67,11 +71,11 @@ PHP;
     public function testConvert3()
     {
         $perl = <<<'PERL'
-    @a = (1 + 2, 3);
+            @a = (1 + 2, 3);
 PERL;
 
         $php = <<<'PHP'
-    $a = [1 + 2, 3];
+            $a = [1 + 2, 3];
 PHP;
         $this->doConvertTest($perl, $php);
     }
@@ -80,11 +84,11 @@ PHP;
     public function testConvert4()
     {
         $perl = <<<'PERL'
-    @a = (1, 2, (3 + 4));
+            @a = (1, 2, (3 + 4));
 PERL;
 
         $php = <<<'PHP'
-    $a = [1, 2, (3 + 4)];
+            $a = [1, 2, (3 + 4)];
 PHP;
         $this->doConvertTest($perl, $php);
     }
@@ -93,11 +97,11 @@ PHP;
     public function testConvert5()
     {
         $perl = <<<'PERL'
-    $a = [ (1, 2, (3 + 4)) ];
+            $a = [ (1, 2, (3 + 4)) ];
 PERL;
 
         $php = <<<'PHP'
-    $a = /*check*/array_merge( [1, 2, (3 + 4)] );
+            $a = /*check*/array_merge( [1, 2, (3 + 4)] );
 PHP;
         $this->doConvertTest($perl, $php);
     }
@@ -106,11 +110,11 @@ PHP;
     public function testConvert6()
     {
         $perl = <<<'PERL'
-    $a = (1, 2, 3);
+            $a = (1, 2, 3);
 PERL;
 
         $php = <<<'PHP'
-    $a = (1, 2, 3);
+            $a = (1, 2, 3);
 PHP;
         $this->doConvertTest($perl, $php);
     }
@@ -119,11 +123,11 @@ PHP;
     public function testConvert7()
     {
         $perl = <<<'PERL'
-    $a = [1, 2, (3 + 4) ];
+            $a = [1, 2, (3 + 4) ];
 PERL;
 
         $php = <<<'PHP'
-    $a = [1, 2, (3 + 4) ];
+            $a = [1, 2, (3 + 4) ];
 PHP;
         $this->doConvertTest($perl, $php);
     }
@@ -132,11 +136,11 @@ PHP;
     public function testConvert8()
     {
         $perl = <<<'PERL'
-    $a = [@a, @b];
+            $a = [@a, @b];
 PERL;
 
         $php = <<<'PHP'
-    $a = /*check*/array_merge($a, $b);
+            $a = /*check*/array_merge($a, $b);
 PHP;
         $this->doConvertTest($perl, $php);
     }
@@ -145,11 +149,11 @@ PHP;
     public function testConvert9()
     {
         $perl = <<<'PERL'
-    ($a, $b, $c) = (1, 2, 3);
+            ($a, $b, $c) = (1, 2, 3);
 PERL;
 
         $php = <<<'PHP'
-    list($a, $b, $c) = [1, 2, 3];
+            list($a, $b, $c) = [1, 2, 3];
 PHP;
         $this->doConvertTest($perl, $php);
     }
