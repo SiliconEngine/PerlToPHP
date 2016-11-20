@@ -981,7 +981,16 @@ repeat:
     {
         // Test if there are matching parentheses or brackets around
         // expression.
-        return trim(preg_replace('/^[\[\(]+(.*)[\]\)]+$/s', '\1', trim($s)));
+        for(;;) {
+            $s = trim($s);
+            $a = substr($s, 0, 1);
+            $b = substr($s, -1, 1);
+            if (! (($a == '(' && $b == ')') || ($a == '[' && $b == ']'))) {
+                break;
+            }
+            $s = substr($s, 1, -1);
+        }
+        return $s;
     }
 
     /**

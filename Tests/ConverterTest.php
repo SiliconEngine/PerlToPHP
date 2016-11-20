@@ -267,6 +267,9 @@ PHP;
             foreach my $var (&func(1)) {
                 print;
             }
+            foreach $a (@{$a->{blap}}) {
+                print;
+            }
 PERL;
 
         $php = <<<'PHP'
@@ -283,6 +286,9 @@ PERL;
                 print;
             }
             foreach (/*check*/func(1) as $var) {
+                print;
+            }
+            foreach ($a['blap'] as $a) {
                 print;
             }
 PHP;
