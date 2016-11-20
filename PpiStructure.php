@@ -199,6 +199,17 @@ class PpiStructure extends PpiNode
                 return parent::genCode();
             }
 
+            // If a list is contained in a list, just kill the parentheses
+            // to combine the lists.
+            // Example: func(1, 2, (3, 4)) => func(1, 2, 3, 4);
+            if ($this->getPrevNonWs()->content == ','
+                    && $this->parent->parent instanceof PpiStructureList
+                    && $this->children[0]->childHasComma()) {
+                $this->startContent = '';
+                $this->endContent = '';
+                return parent::genCode();
+            }
+
             // If array context, convert to brackets
             if (in_array($this->context, ['array', 'hash'])) {
                 $this->startContent = '[';

@@ -1406,6 +1406,26 @@ PHP;
         $this->doConvertTest($perl, $php);
     }
 
+    /**
+     * Check combining  ists
+     * func(1, 2, (3, 4)) => func(1, 2, 3, 4)
+     */
+    public function testListCombine()
+    {
+        $perl = <<<'PERL'
+            $a = func($a, $b, ($c, $d));
+            $a = func($a, $b, ($c+ $d));
+            @a = ($a, $b, ($c, $d));
+PERL;
+
+        $php = <<<'PHP'
+            $a = func($a, $b, $c, $d);
+            $a = func($a, $b, ($c+ $d));
+            $a = [$a, $b, $c, $d];
+PHP;
+        $this->doConvertTest($perl, $php);
+    }
+
 
     /**
      * Template for new tests

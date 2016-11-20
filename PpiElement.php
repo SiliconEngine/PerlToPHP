@@ -1001,6 +1001,16 @@ repeat:
 
         return false;
     }
-
-
+    /**
+     * Check if child of element contains a comma operator
+     */
+    public function childHasComma()
+    {
+        foreach ($this->children as $obj) {
+            if ($obj instanceof PpiTokenOperator && $obj->content == ',') {
+                return true;
+            }
+        }
+        return false;
+    }
 }
