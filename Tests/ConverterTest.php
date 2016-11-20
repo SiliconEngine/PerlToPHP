@@ -267,7 +267,10 @@ PHP;
             foreach my $var (&func(1)) {
                 print;
             }
-            foreach $a (@{$a->{blap}}) {
+            foreach $a (@{$a->{test}}) {
+                print;
+            }
+            foreach $a (qw(1 2 3 4 test)) {
                 print;
             }
 PERL;
@@ -288,7 +291,10 @@ PERL;
             foreach (/*check*/func(1) as $var) {
                 print;
             }
-            foreach ($a['blap'] as $a) {
+            foreach (($a['test']) as $a) {
+                print;
+            }
+            foreach ([ 1, 2, 3, 4, 'test' ] as $a) {
                 print;
             }
 PHP;

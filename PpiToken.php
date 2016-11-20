@@ -542,7 +542,7 @@ class PpiTokenQuoteLikeWords extends PpiTokenQuoteLike
 {
     public function anaContext()
     {
-        $this->setContextChain('string');
+        $this->setContextChain('array');
     }
 
     function genCode()
@@ -551,7 +551,7 @@ class PpiTokenQuoteLikeWords extends PpiTokenQuoteLike
             if (preg_match('/qw\s*\((.*)\)/', $this->content, $matches)) {
                 $list = explode(' ', $matches[1]);
                 $this->content = '[ ' . implode(', ', array_map(function ($s) {
-                    return "'$s'";
+                    return (is_numeric($s)) ? $s : "'$s'";
                 }, $list)) . ' ]';
             }
         }

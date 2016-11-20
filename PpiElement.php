@@ -977,11 +977,15 @@ repeat:
      * Utility function to remove a set of parentheses or brackets on ends
      */
     public function stripParensOrBrackets(
-        $s)
+        $s,
+        $options = [])
     {
+        // Remove all levels of brackets/parens
+        $global = ! empty($options['global']);
+
         // Test if there are matching parentheses or brackets around
         // expression.
-        for(;;) {
+        do {
             $s = trim($s);
             $a = substr($s, 0, 1);
             $b = substr($s, -1, 1);
@@ -989,8 +993,9 @@ repeat:
                 break;
             }
             $s = substr($s, 1, -1);
-        }
-        return $s;
+        } while ($global);
+
+        return trim($s);
     }
 
     /**
