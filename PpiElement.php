@@ -981,7 +981,7 @@ repeat:
     {
         // Test if there are matching parentheses or brackets around
         // expression.
-        return trim(preg_replace('/[\[\(]+(.*)[\]\)]+/s', '\1', trim($s)));
+        return trim(preg_replace('/^[\[\(]+(.*)[\]\)]+$/s', '\1', trim($s)));
     }
 
     /**

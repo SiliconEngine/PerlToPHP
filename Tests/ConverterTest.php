@@ -1426,6 +1426,61 @@ PHP;
         $this->doConvertTest($perl, $php);
     }
 
+    /**
+     * Test merging of arrays in a list
+     */
+    public function testArrayMerge()
+    {
+        $perl = <<<'PERL'
+            @a = (@b, $c);
+            foreach $b (@b, $c) {
+                print;
+            }
+PERL;
+
+        $php = <<<'PHP'
+            $a = array_merge($b, $c);
+            foreach (array_merge($b, $c) as $b) {
+                print;
+            }
+PHP;
+        $this->doConvertTest($perl, $php);
+
+        // Should NOT convert
+        $perl = <<<'PERL'
+            @a = (
+                [ 1, 2 ],
+                [ 3, 4 ],
+            );
+            @std_rules = (
+                {	field => 'field1',
+                        sub => 'test1',
+                },
+                {	field => 'field2',
+                        sub => 'test2',
+                },
+            );
+PERL;
+
+        $php = <<<'PHP'
+            $a = [
+                [ 1, 2 ],
+                [ 3, 4 ],
+            ];
+            $stdRules = [
+                [	'field' => 'field1',
+                        'sub' => 'test1',
+                ],
+                [	'field' => 'field2',
+                        'sub' => 'test2',
+                ],
+            ];
+PHP;
+        $this->doConvertTest($perl, $php);
+
+
+    }
+
 
     /**
      * Template for new tests

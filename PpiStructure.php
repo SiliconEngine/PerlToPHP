@@ -199,14 +199,28 @@ class PpiStructure extends PpiNode
                 return parent::genCode();
             }
 
+            $obj = $this->getNextNonWs();
+            $childHasComma = $obj->childHasComma();
+            $childList = $obj->children;
+            $firstChild = $childList[0]->skipWs();
+
             // If a list is contained in a list, just kill the parentheses
             // to combine the lists.
             // Example: func(1, 2, (3, 4)) => func(1, 2, 3, 4);
             if ($this->getPrevNonWs()->content == ','
                     && $this->parent->parent instanceof PpiStructureList
-                    && $this->children[0]->childHasComma()) {
+                    && $childHasComma) {
                 $this->startContent = '';
                 $this->endContent = '';
+                return parent::genCode();
+            }
+
+            // If list with arrays (but not arrayref), then convert to
+            // array_merge
+            if (in_array($firstChild->context, [ 'array', 'hash' ])
+                    && ! in_array($firstChild->startContent, [ '[', '{' ])
+                    && $childHasComma) {
+                $this->startContent = 'array_merge(';
                 return parent::genCode();
             }
 
