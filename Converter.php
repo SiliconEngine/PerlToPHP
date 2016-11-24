@@ -106,6 +106,20 @@ class Converter
                         substr($content, 1, -1)));
                     $obj->content = str_replace("\001", '\\', $content);
 
+                } elseif ($obj instanceof PpiTokenQuoteLikeWords) {
+                    // qw() can have embedded newlines.
+                    // Note that PPI has a bug with things like:
+                    //      @a = qw( abc def \n
+                    //          ghi jkl );
+                    // It gives us: "qw( abc def \n\n    ghi jlk )".
+                    // Might have \\ escaped, which we keep escaped.
+
+                    $content = str_replace('\\\\', "\001", $content);
+                    $content = str_replace('\t', "\t",
+                        str_replace('\n', "\n",
+                        substr($content, 1, -1)));
+                    $obj->content = str_replace("\001", '\\\\', $content);
+
                 } else {
                     // Regular content, just remove outer single quotes
 

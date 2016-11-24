@@ -195,8 +195,12 @@ class PpiTokenCast extends PpiToken
         case '$#':
             $this->setContextChain('scalar');
             break;
+        case '&':
+            $this->setContextChain('scalar');
+            break;
         default:
-            print "unknown cast: {$this->content}, line {$this->lineNum}\n";
+            throw new \Exception(
+                "unknown cast: {$this->content}, line {$this->lineNum}");
             exit(0);
         }
     }
@@ -268,6 +272,18 @@ class PpiTokenCast extends PpiToken
                     $this->next->endContent = '';
                 }
 
+                break;
+
+            case '&':
+                // Function cast, just comment out.
+                $this->content = '/*check:&*/';
+
+                // Change braces to parentheses
+                if ($this->next instanceof PpiStructureBlock) {
+                    $this->next->startContent = '';
+                    $this->next->endContent = '';
+                    $this->next->converted = true;
+                }
                 break;
 
             default:
@@ -548,12 +564,11 @@ class PpiTokenQuoteLikeWords extends PpiTokenQuoteLike
     function genCode()
     {
         if (! $this->converted) {
-            if (preg_match('/qw\s*\((.*)\)/', $this->content, $matches)) {
-                $list = explode(' ', $matches[1]);
-                $this->content = '[ ' . implode(', ', array_map(function ($s) {
-                    return (is_numeric($s)) ? $s : "'$s'";
-                }, $list)) . ' ]';
-            }
+            $d = trim(substr($this->content, 3, -1));
+            $list = preg_split('/\s+/', $d);
+            $this->content = '[ ' . implode(', ', array_map(function ($s) {
+                return (is_numeric($s)) ? $s : "'$s'";
+            }, $list)) . ' ]';
         }
 
         return parent::genCode();

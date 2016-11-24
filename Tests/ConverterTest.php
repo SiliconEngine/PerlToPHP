@@ -666,10 +666,17 @@ PHP;
     {
         $perl = <<<'PERL'
             $a = qw(a def c);
+            $a = qw( a def c );
+            $a = qw/ a def c /;
+            $a = qw( a def c
+                d e f );
 PERL;
 
         $php = <<<'PHP'
             $a = [ 'a', 'def', 'c' ];
+            $a = [ 'a', 'def', 'c' ];
+            $a = [ 'a', 'def', 'c' ];
+            $a = [ 'a', 'def', 'c', 'd', 'e', 'f' ];
 PHP;
         $this->doConvertTest($perl, $php);
     }
@@ -1518,6 +1525,23 @@ PERL;
             $a = FUNCNAME(10);
             $a = _def(10);
             $a = $_def;
+PHP;
+        $this->doConvertTest($perl, $php);
+    }
+
+    /**
+     * Test function casts
+     */
+    public function testFunctionCast()
+    {
+        $perl = <<<'PERL'
+            &$a(1, 2);
+            &{$b->{func}}(1, 2);
+PERL;
+
+        $php = <<<'PHP'
+            /*check:&*/$a(1, 2);
+            /*check:&*/$b['func'](1, 2);
 PHP;
         $this->doConvertTest($perl, $php);
     }
