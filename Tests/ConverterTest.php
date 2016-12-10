@@ -495,14 +495,14 @@ PHP;
         $perl = <<<'PERL'
             sub func
             {
-                my ($a, $b) = @_;
+                my ($a, $b, $with_under, $camelCase) = @_;
 
                 print;
             }
 PERL;
 
         $php = <<<'PHP'
-            function func($a, $b)
+            function func($a, $b, $withUnder, $camelCase)
             {
                 print;
             }

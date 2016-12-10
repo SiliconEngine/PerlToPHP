@@ -935,7 +935,7 @@ class PpiTokenWord extends PpiToken
                         }
 
                         if ($child instanceof PpiTokenSymbol) {
-                            $argList[] = $child->content;
+                            $argList[] = $child->genCode();
                         }
 
                         $child = $child->next;
