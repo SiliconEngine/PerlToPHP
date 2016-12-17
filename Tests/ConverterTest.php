@@ -1109,16 +1109,28 @@ PHP;
     {
         $perl = <<<'PERL'
             $var = @$list;
+            $var = @$with_underscore;
             $var = @{$list};
             $var = $#list;
             $var = $#{$list};
+            $var = @list_var;
+            $var = func((@list_var + 1) / 2);
+            if (@$var) {
+                print;
+            }
 PERL;
 
         $php = <<<'PHP'
             $var = count($list);
+            $var = count($withUnderscore);
             $var = count($list);
             $var = (count($list)-1);
             $var = (count($list)-1);
+            $var = count($listVar);
+            $var = func((count($listVar) + 1) / 2);
+            if (count($var)) {
+                print;
+            }
 PHP;
         $this->doConvertTest($perl, $php);
     }
@@ -1423,7 +1435,7 @@ PERL;
         $php = <<<'PHP'
             $a = range(10, 30);
             $a = range(4 + 5, 6 + 7);
-            foreach (/*check*/range(100, 105) as $rule_type) {
+            foreach (/*check*/range(100, 105) as $ruleType) {
             }
 PHP;
         $this->doConvertTest($perl, $php);

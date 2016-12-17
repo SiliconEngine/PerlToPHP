@@ -227,11 +227,12 @@ class PpiTokenCast extends PpiToken
                         $text = $this->next->getRecursiveContent();
                         $this->next->cancelAll();
                         $this->content = "count(" . substr($text, 1, -1) . ")";
+                        $this->converted = true;
 
                     } elseif ($next instanceof PpiTokenSymbol) {
                         // Something like @$a
 
-                        $this->content = "count({$next->content})";
+                        $this->content = "count({$next->genCode()})";
                         $next->cancel();
                     } else {
                         print "Unknown cast following type: " .
@@ -240,7 +241,7 @@ class PpiTokenCast extends PpiToken
                     }
 
                     if ($needMinus) {
-                        $this->content = "({$this->content}-1)";
+                        $this->content = "({$this->genCode()}-1)";
                     }
 
                 } else {
@@ -591,7 +592,19 @@ class PpiTokenSymbol extends PpiToken
             break;
 
         case '@':
-            $this->setContextChain('array');
+            // Hard to create a general rule for array or scalar here
+            if ($this->parent instanceof PpiStatementExpression) {
+                // Use context of parent
+                $this->setContextChain($this->parent->context);
+            } elseif ($this->prevSibling !== null &&
+                    $this->prev->content == '=') { 
+
+                // An '=' sign implies scalar
+                $this->setContextChain('scalar');
+
+            } else {
+                $this->setContextChain('array');
+            }
             break;
 
         case '%':
@@ -616,9 +629,15 @@ class PpiTokenSymbol extends PpiToken
 
                     $varName = "//{$varName}";
                 } else {
-                    // Array, change to normal variable
+                    // Array, change to normal variable if array context
+                    // otherwise convert to count.
 
-                    $varName = '$' . substr($varName, 1);
+                    if ($this->context == 'scalar') {
+                        $varName = 'count($' .
+                            $this->cvtCamelCase(substr($varName, 1)) . ')';
+                    } else {
+                        $varName = '$' . substr($varName, 1);
+                    }
                 }
                 break;
 
@@ -689,6 +708,7 @@ class PpiTokenWord extends PpiToken
         case 'split':
         case 'delete':
         case 'keys':
+        case 'sort':
             $this->setContextChain('array');
             break;
 
@@ -1329,7 +1349,7 @@ class PpiTokenWord extends PpiToken
                 ", content: '{$obj->content}'\n";
             exit(1);
         }
-        $var = $obj->content;
+        $var = $obj->genCode();
         $obj->cancel();
 
         // Next is expression in parenthesis
