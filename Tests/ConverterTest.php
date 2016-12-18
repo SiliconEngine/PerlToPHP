@@ -746,6 +746,13 @@ PHP;
     {
         $list = [
             [ 'perl' => 'defined', 'php' => '/*check*/isset' ],
+            [ 'perl' => 'uc', 'php' => 'strtoupper' ],
+            [ 'perl' => 'lc', 'php' => 'strtolower' ],
+            [ 'perl' => 'delete', 'php' => 'unset' ],
+            [ 'perl' => 'int', 'php' => 'floor' ],
+            [ 'perl' => 'shift', 'php' => 'array_shift' ],
+            [ 'perl' => 'pop', 'php' => 'array_pop' ],
+
         ];
 
         foreach ($list as $func) {
@@ -754,14 +761,14 @@ PHP;
             // Test as an index, like $a = $b[pop $c];
             // Test multiple subscripts, like pop $var{stuff1}{stuff2}
             $perl = <<<"PERL"
-                \$a = {$func['perl']} \$b;
+                \$a = {$func['perl']} \$test_var;
                 \$a = \$b[{$func['perl']} \$c];
                 \$a = {$func['perl']} \$var{stuff1}{stuff2};
                 \$a = {$func['perl']} \$var[10][20];
 PERL;
 
             $php = <<<"PHP"
-                \$a = {$func['php']}(\$b);
+                \$a = {$func['php']}(\$testVar);
                 \$a = \$b[{$func['php']}(\$c)];
                 \$a = {$func['php']}(\$var['stuff1']['stuff2']);
                 \$a = {$func['php']}(\$var[10][20]);

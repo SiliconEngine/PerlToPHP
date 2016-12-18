@@ -831,7 +831,10 @@ class PpiTokenWord extends PpiToken
                     $this->content = 'array_push';
                     break;
                 case 'length':
-                    $this->content = 'strlen';
+                    $this->tokenWordWithArg('strlen(%s)');
+                    break;
+                case 'int':
+                    $this->tokenWordWithArg('floor(%s)');
                     break;
                 case 'defined':
                     $this->tokenWordWithArg('/*check*/isset(%s)');
