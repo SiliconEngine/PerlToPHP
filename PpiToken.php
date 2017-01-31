@@ -199,9 +199,9 @@ class PpiTokenCast extends PpiToken
             $this->setContextChain('scalar');
             break;
         default:
-            throw new \Exception(
-                "unknown cast: {$this->content}, line {$this->lineNum}");
-            exit(0);
+            // Default to scalar
+            $this->setContextChain('scalar');
+            break;
         }
     }
 
