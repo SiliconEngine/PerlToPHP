@@ -414,7 +414,7 @@ class PpiTokenOperator extends PpiToken
                     $matches)) {
 
                 $pattern = trim($matches[1]);
-                $replace = trim($matches[2]);
+                $replace = $matches[2];
                 $leftVar = $var = trim($var);
 
                 // Check for special case that looks like this:

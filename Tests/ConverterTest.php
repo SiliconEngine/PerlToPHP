@@ -419,10 +419,14 @@ PHP;
         // Test simple
         $perl = <<<'PERL'
             $x =~ s/\s+/abc/;
+            $x =~ s/\s+/  abc  /;
+            $x =~ s/  def  /  abc  /;
 PERL;
 
         $php = <<<'PHP'
             $x = preg_replace('/\s+/', 'abc', $x);
+            $x = preg_replace('/\s+/', '  abc  ', $x);
+            $x = preg_replace('/  def  /', '  abc  ', $x);
 PHP;
         $this->doConvertTest($perl, $php);
 
