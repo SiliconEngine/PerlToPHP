@@ -1067,6 +1067,9 @@ PHP;
                 if ($a == $b) {
                     print;
                 }
+
+                my (@c, @d);
+                my @list;
             }
 PERL;
 
@@ -1077,6 +1080,10 @@ PERL;
                 if ($a == $b) {
                     print;
                 }
+
+                $c = [];
+                $d = [];
+                $list = [];
             }
 PHP;
         $this->doConvertTest($perl, $php);

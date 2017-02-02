@@ -44,6 +44,130 @@ class PpiToken extends PpiElement
     }
 }
 
+/**
+ * Usually a variable name
+ */
+class PpiTokenSymbol extends PpiToken
+{
+    public function anaContext()
+    {
+        switch (substr($this->content, 0, 1)) {
+        default:
+        case '&':
+        case '$':
+            // Scalar variable, may or may not be scalar expression
+            $this->setContextChain('scalar');
+            break;
+
+        case '@':
+            // Hard to create a general rule for array or scalar here
+            if ($this->prevSibling !== null &&
+                    $this->prevSibling->content == 'my') { 
+                // my @var
+
+                $this->setContextChain('array');
+
+            } elseif ($this->parent instanceof PpiStatementExpression) {
+                // Use context of parent. Not sure if this is reliable.
+
+                $this->setContextChain($this->parent->context);
+            } elseif ($this->prevSibling !== null &&
+                    $this->prevSibling->content == '=') { 
+
+                // An '=' sign implies scalar
+                $this->setContextChain('scalar');
+
+            } else {
+                $this->setContextChain('array');
+            }
+            break;
+
+        case '%':
+            $this->setContextChain('hash');
+            break;
+        }
+    }
+
+    function genCode()
+    {
+        if (! $this->converted) {
+            $varName = $this->content;
+
+            switch (substr($varName, 0, 1)) {
+            case '$':
+                // Normal variable
+                break;
+
+            case '@':
+                if ($varName == '@ISA' || $varName == '@EXPORT') {
+                    // Special case, just comment out
+
+                    $varName = "//{$varName}";
+                } else {
+                    // Array, change to normal variable if array context
+                    // otherwise convert to count.
+
+                    if ($this->context == 'scalar') {
+                        $varName = 'count($' .
+                            $this->cvtCamelCase(substr($varName, 1)) . ')';
+                    } else {
+                        $varName = '$' . substr($varName, 1);
+                    }
+                }
+                break;
+
+            case '%':
+                // Hash, change to normal variable
+                $varName = '$' . substr($varName, 1);
+                break;
+
+            case '&':
+                // Function, just strip off
+                $varName = substr($varName, 1);
+                break;
+
+            default:
+                // Other is most likely function
+                break;
+            }
+
+            $path = '';
+            if (strpos($varName, '::') !== false) {
+                // Word has a path, convert it
+
+                $save = '';
+                if (substr($varName, 0, 1) == '$') {
+                    $varName = substr($varName, 1);
+                    $save = '$';
+                }
+
+                if (preg_match('/(.*)::(.*)/', $varName, $matches)) {
+                    $path = '\\' . $this->cvtPackageName($matches[1]) . '::';
+                    $varName = $save . $matches[2];
+                }
+            }
+
+            // Convert variable names to camel case
+            if (substr($varName, 0, 1) == '$') {
+                $this->content = $path . '$' .
+                    $this->cvtCamelCase(substr($varName, 1));
+            } else {
+                $this->content = $path . $this->cvtCamelCase($varName);
+            }
+
+            // Translate special object reference name, unless it's
+            // an assignment
+            if ($this->content == '$self' && $this->next->content != '=') {
+                $this->content = '$this';
+            }
+        }
+
+        return parent::genCode();
+    }
+
+}
+
+
 class PpiTokenQuoteDouble extends PpiTokenQuote
 {
     function genCode()
@@ -577,122 +701,6 @@ class PpiTokenQuoteLikeWords extends PpiTokenQuoteLike
 }
 
 /**
- * Usually a variable name
- */
-class PpiTokenSymbol extends PpiToken
-{
-    public function anaContext()
-    {
-        switch (substr($this->content, 0, 1)) {
-        default:
-        case '&':
-        case '$':
-            // Scalar variable, may or may not be scalar expression
-            $this->setContextChain('scalar');
-            break;
-
-        case '@':
-            // Hard to create a general rule for array or scalar here
-            if ($this->parent instanceof PpiStatementExpression) {
-                // Use context of parent
-                $this->setContextChain($this->parent->context);
-            } elseif ($this->prevSibling !== null &&
-                    $this->prev->content == '=') { 
-
-                // An '=' sign implies scalar
-                $this->setContextChain('scalar');
-
-            } else {
-                $this->setContextChain('array');
-            }
-            break;
-
-        case '%':
-            $this->setContextChain('hash');
-            break;
-        }
-    }
-
-    function genCode()
-    {
-        if (! $this->converted) {
-            $varName = $this->content;
-
-            switch (substr($varName, 0, 1)) {
-            case '$':
-                // Normal variable
-                break;
-
-            case '@':
-                if ($varName == '@ISA' || $varName == '@EXPORT') {
-                    // Special case, just comment out
-
-                    $varName = "//{$varName}";
-                } else {
-                    // Array, change to normal variable if array context
-                    // otherwise convert to count.
-
-                    if ($this->context == 'scalar') {
-                        $varName = 'count($' .
-                            $this->cvtCamelCase(substr($varName, 1)) . ')';
-                    } else {
-                        $varName = '$' . substr($varName, 1);
-                    }
-                }
-                break;
-
-            case '%':
-                // Hash, change to normal variable
-                $varName = '$' . substr($varName, 1);
-                break;
-
-            case '&':
-                // Function, just strip off
-                $varName = substr($varName, 1);
-                break;
-
-            default:
-                // Other is most likely function
-                break;
-            }
-
-            $path = '';
-            if (strpos($varName, '::') !== false) {
-                // Word has a path, convert it
-
-                $save = '';
-                if (substr($varName, 0, 1) == '$') {
-                    $varName = substr($varName, 1);
-                    $save = '$';
-                }
-
-                if (preg_match('/(.*)::(.*)/', $varName, $matches)) {
-                    $path = '\\' . $this->cvtPackageName($matches[1]) . '::';
-                    $varName = $save . $matches[2];
-                }
-            }
-
-            // Convert variable names to camel case
-            if (substr($varName, 0, 1) == '$') {
-                $this->content = $path . '$' .
-                    $this->cvtCamelCase(substr($varName, 1));
-            } else {
-                $this->content = $path . $this->cvtCamelCase($varName);
-            }
-
-            // Translate special object reference name, unless it's
-            // an assignment
-            if ($this->content == '$self' && $this->next->content != '=') {
-                $this->content = '$this';
-            }
-        }
-
-        return parent::genCode();
-    }
-
-}
-
-/**
  * Process general token word, this is where a lot of the action takes
  * place.
  */
@@ -725,9 +733,11 @@ class PpiTokenWord extends PpiToken
             break;
 
         case 'my':
-            // If next token is parenthesis, then use array context
+            // If next token is parenthesis or start of array, then use
+            // array context
             $node = $this->getNextNonWs();
-            if ($node->startContent == '(') {
+            if ($node->startContent == '(' ||
+                            substr($node->content, 0, 1) == '@') {
                 $this->setContext('array');
             } else {
                 $this->setContext('scalar');
@@ -1143,8 +1153,9 @@ class PpiTokenWord extends PpiToken
                 $varList = [];
                 foreach ($obj->children as $child) {
                     if ($child instanceof PpiTokenSymbol) {
+                        $type = $child->context;
                         $var = $child->genCode();
-                        $varList[] = $var;
+                        $varList[] = (object)['name' => $var, 'type' => $type];
                     }
                     $child->cancel();
                 }
@@ -1155,7 +1166,8 @@ class PpiTokenWord extends PpiToken
                     if ($s !== '') {
                         $s .= "\n$indent";
                     }
-                    $s .= "$var = null;";
+                    $s .= "{$var->name} = " .
+                        ($var->type == 'array' ? '[]' : 'null') . ";";
                 }
                 $this->content = $s;
                 $this->next->cancelUntil($scan);
@@ -1177,7 +1189,8 @@ class PpiTokenWord extends PpiToken
         }
 
         if ($peek[1]->isSemicolon()) {
-            $peek[1]->content = " = null;";
+            $peek[1]->content = " = " .
+                ($this->context == 'array' ? '[]' : 'null') . ";";
         }
         return;
     }
