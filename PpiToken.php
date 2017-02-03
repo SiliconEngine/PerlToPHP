@@ -66,7 +66,9 @@ class PpiTokenSymbol extends PpiToken
             break;
 
         case '@':
-            // Hard to create a general rule for array or scalar here
+            // Hard to create a general rule for array or scalar here.
+            // This is all precariously balanced.
+
             if ($this->prevSibling !== null &&
                     ($this->prevSibling->content == 'my' ||
                     $this->prevSibling->content == '\\')) { 
@@ -74,10 +76,24 @@ class PpiTokenSymbol extends PpiToken
 
                 $this->setContextChain('array');
 
+            } elseif ($this->parent->context == 'array' ||
+                            $this->prev->context == 'array') {
+                // If the parent is array context, or the left token is a
+                // array context, call it array context.
+
+                $this->setContextChain('array');
+
+            } elseif ($this->prevSibling !== null &&
+                    $this->prevSibling->context == 'scalar') {
+                // If left sibling is scalar, then call it scalar.
+
+                $this->setContext('scalar');
+
             } elseif ($this->parent instanceof PpiStatementExpression) {
                 // Use context of parent. Not sure if this is reliable.
 
                 $this->setContextChain($this->parent->context);
+
             } elseif ($this->prevSibling !== null &&
                     $this->prevSibling->content == '=') { 
 
@@ -456,7 +472,9 @@ class PpiTokenOperator extends PpiToken
 
         case '=':
             // lvalue generally determines context
-            $this->setContext($this->getPrevSiblingUpTree()->context);
+            $context = $this->getPrevSiblingUpTree()->context;
+            $this->setContextChain($this->getPrevSiblingUpTree()->context);
+            $this->parent->context = $context;
             break;
 
         case '..':

@@ -1604,6 +1604,11 @@ PHP;
             $a = [ @b ];
             $a = [ @b, @c ];
             $a = [ @b, 2 ];
+            $a = shift @b;
+            $a = func(shift(@b));
+            $a = func(shift @b);
+            $a = @a;
+            $a = 0 + @a;
 
             # This is wrong, but hard to fix. Make sure it's marked
             func(@a, 2, 4);
@@ -1613,6 +1618,11 @@ PERL;
             $a = /*check*/array_merge( $b );
             $a = /*check*/array_merge( $b, $c );
             $a = /*check*/array_merge( $b, 2 );
+            $a = array_shift($b);
+            $a = func(array_shift($b));
+            $a = func(array_shift($b));
+            $a = count($a);
+            $a = 0 + count($a);
 
             // This is wrong, but hard to fix. Make sure it's marked
             func(/*check*/count($a), 2, 4);
