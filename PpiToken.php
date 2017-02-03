@@ -55,6 +55,12 @@ class PpiTokenSymbol extends PpiToken
         default:
         case '&':
         case '$':
+            if ($this->prevSibling !== null &&
+                    $this->prevSibling->content == '@') {
+                $this->setContextChain('array');
+                break;
+            }
+
             // Scalar variable, may or may not be scalar expression
             $this->setContextChain('scalar');
             break;
@@ -111,6 +117,14 @@ class PpiTokenSymbol extends PpiToken
                     if ($this->context == 'scalar') {
                         $varName = 'count($' .
                             $this->cvtCamelCase(substr($varName, 1)) . ')';
+
+                        // If there's a comma on either side, mark this
+                        // as suspect.
+                        if ($this->prev->content == ',' ||
+                                        $this->next->content == ',') {
+                            $varName = "/*check*/$varName";
+                        }
+
                     } else {
                         $varName = '$' . substr($varName, 1);
                     }
@@ -310,6 +324,7 @@ class PpiTokenCast extends PpiToken
         case '@':
             // Might be scalar or array
             $this->setContext($this->prev->context);
+//            $this->setContext($this->parent->context);
             break;
         case '%':
             $this->setContextChain('hash');
@@ -432,7 +447,8 @@ class PpiTokenOperator extends PpiToken
             // See: PpiStructureList for notes.
             //
             // Always scalar, because it's marking off scalars even in lists
-            $this->setContext('scalar');
+//            $this->setContext('scalar');
+            $this->setContext($this->prev->context);
             break;
         case '.':
             $this->setContextChain('string');

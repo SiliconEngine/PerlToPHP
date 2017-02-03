@@ -1595,6 +1595,31 @@ PHP;
         $this->doConvertTest($perl, $php);
     }
 
+    /**
+     * Test some array cases.
+     */
+    public function testArrayConversions()
+    {
+        $perl = <<<'PERL'
+            $a = [ @b ];
+            $a = [ @b, @c ];
+            $a = [ @b, 2 ];
+
+            # This is wrong, but hard to fix. Make sure it's marked
+            func(@a, 2, 4);
+PERL;
+
+        $php = <<<'PHP'
+            $a = /*check*/array_merge( $b );
+            $a = /*check*/array_merge( $b, $c );
+            $a = /*check*/array_merge( $b, 2 );
+
+            // This is wrong, but hard to fix. Make sure it's marked
+            func(/*check*/count($a), 2, 4);
+PHP;
+        $this->doConvertTest($perl, $php);
+    }
+
 
     /**
      * Template for new tests
