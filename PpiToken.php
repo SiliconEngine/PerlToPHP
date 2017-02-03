@@ -62,8 +62,9 @@ class PpiTokenSymbol extends PpiToken
         case '@':
             // Hard to create a general rule for array or scalar here
             if ($this->prevSibling !== null &&
-                    $this->prevSibling->content == 'my') { 
-                // my @var
+                    ($this->prevSibling->content == 'my' ||
+                    $this->prevSibling->content == '\\')) { 
+                // my @var or \@var
 
                 $this->setContextChain('array');
 

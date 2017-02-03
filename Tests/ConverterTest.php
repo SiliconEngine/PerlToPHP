@@ -1208,6 +1208,25 @@ PHP;
     }
 
     /**
+     * Test \ cast
+     */
+    public function testRefCast()
+    {
+        $perl = <<<'PERL'
+            func(\@b, 2);
+            $a = \@b;
+            $a = \%b;
+PERL;
+
+        $php = <<<'PHP'
+            func(/*check:\*/$b, 2);
+            $a = /*check:\*/$b;
+            $a = /*check:\*/$b;
+PHP;
+        $this->doConvertTest($perl, $php);
+    }
+
+    /**
      * Testing commenting out warning directives
      */
     public function testWarningDirectives()
