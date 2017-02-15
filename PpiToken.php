@@ -985,7 +985,9 @@ class PpiTokenWord extends PpiToken
                     $child = $obj->children[0];
                     $lastChild = end($obj->children);
                     while (! $child->isSemicolon() && --$max > 0) {
-                        if ($child->content == '@_') {
+                        if ($child->content == '=' && 
+                                        $child->next->content == '@_') {
+                            $child = $child->next;
                             $found = true;
 
                             // Cancel object and all children
@@ -993,8 +995,9 @@ class PpiTokenWord extends PpiToken
 
                             // Suck up extra newlines, but keep one
                             $obj = $obj->nextSibling;
-                            if ($obj->isNewline()) {
-                                while ($obj->next->isNewline()) {
+                            if ($obj !== null && $obj->isNewline()) {
+                                while ($obj->nextSibling !== null &&
+                                            $obj->nextSibling->isNewline()) {
                                     $obj->cancel();
                                     $obj = $obj->next;
                                 }

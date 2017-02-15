@@ -503,12 +503,32 @@ PHP;
 
                 print;
             }
+
+            sub func_new
+            {
+                my $x = func(@_);
+            }
+
+            sub func_new_two
+            {
+                my ($x, $y) = func_new(@_);
+            }
 PERL;
 
         $php = <<<'PHP'
             function func($a, $b, $withUnder, $camelCase)
             {
                 print;
+            }
+
+            function funcNew()
+            {
+                $x = func($fake/*check:@*/);
+            }
+
+            function funcNewTwo()
+            {
+                list($x, $y) = funcNew($fake/*check:@*/);
             }
 PHP;
         $this->doConvertTest($perl, $php);
