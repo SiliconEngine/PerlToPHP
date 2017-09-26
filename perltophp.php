@@ -40,7 +40,7 @@
         $outFn = get_in($fileList, 1);
     } else {
         $options = getopt('i:o:qv');
-        $fn = $options['i'];
+        $fn = get_in($options, 'i');
         $outFn = get_in($options, 'o');
     }
 
@@ -52,7 +52,7 @@
     $cvt->setVerbose($verboseOpt);
     $cvt->readFile($fn);
 
-    $ppiFn = ! empty($outFn) ? "$outFn.ppi" : "$fn.ppi";
+    $ppiFn = '/tmp/' . basename(empty($outFn) ? $fn : $outFn) . '.ppi';
     $newDoc = $cvt->convert($ppiFn);
 
     if (! empty($outFn)) {
