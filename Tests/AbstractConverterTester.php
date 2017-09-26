@@ -1,7 +1,7 @@
 <?php
 require_once('../Converter.php');
 
-class AbstractConverterTester extends \PHPUnit_Framework_TestCase
+class AbstractConverterTester extends PHPUnit\Framework\TestCase
 {
     protected $tmpPerlFn = '/tmp/test_perl.pl';
     protected $tmpPhpFn = '/tmp/test_php.php';
