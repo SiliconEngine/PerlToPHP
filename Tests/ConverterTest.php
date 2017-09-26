@@ -194,6 +194,20 @@ PERL;
             }
 PHP;
         $this->doConvertTest($perl, $php);
+
+        // Test setting anonymous function
+        $perl = <<<'PERL'
+            $a = sub {
+                print;
+            };
+PERL;
+
+        $php = <<<'PHP'
+            $a = function () {
+                print;
+            };
+PHP;
+        $this->doConvertTest($perl, $php);
     }
 
     public function testForeach1()

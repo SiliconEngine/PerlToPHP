@@ -945,7 +945,8 @@ class PpiTokenWord extends PpiToken
         $parent = $this->parent;
         // Need to look at context
 
-        if ($parent instanceof PpiStatementVariable) {
+        if ($parent instanceof PpiStatementVariable
+                    || $this->prev->content == '=') {
             // Anonymous function
 
             $this->content = 'function ()';
@@ -1054,7 +1055,7 @@ class PpiTokenWord extends PpiToken
                 implode(', ', $argList) . ")";
         } else {
             throw new \Exception("Bad context " . get_class($parent) .
-                ", Could not convert $word\n");
+                ", Could not convert {$this->content}\n");
         }
 
         return;
