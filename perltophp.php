@@ -1,24 +1,10 @@
 <?php
 /**
  * Program to convert Perl code to PHP.
- * @author          Tim Behrendsen <tim@behrendsen.com>
- * @created         2016-10-14
  *
- * TODO:
- * -) Flag conversions of @var to $var (might be a count expression). Try
- *      and determine if it's part of a math expression?
- * -) Maybe implment generate test if math expression.
- * -) Remove casts and just flag. That's the usual case.
- * -) Line 2516: Bad conversion of parenthesis.
- * *) Switch around foreach
- * -) ' ' x (1 + 1)
- * -) Mark 'chop' statement with 'check'
- * -) $_[0] !~ /pattern/ -- Need to scan backward for ws or last sibling
- * -) Convert expressions in strings
- * -) keys
+ * @author          Tim Behrendsen <tim@siliconengine.com>
+ * @created         2016-10-14
  */
-
-
     require_once('Converter.php');
 
     ini_set('memory_limit', '1G');

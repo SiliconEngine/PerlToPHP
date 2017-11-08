@@ -1,4 +1,10 @@
 <?php
+/**
+ * PPI token nodes.
+ *
+ * @author          Tim Behrendsen <tim@siliconengine.com>
+ * @created         2016-10-14
+ */
 
 class PpiTokenWhitespace extends PpiToken { }
 class PpiTokenPod extends PpiToken { }

@@ -1,4 +1,10 @@
 <?php
+/**
+ * PPI structure nodes.
+ *
+ * @author          Tim Behrendsen <tim@siliconengine.com>
+ * @created         2016-10-14
+ */
 
 class PpiStructureGiven extends PpiStructure { }
 class PpiStructureWhen extends PpiStructure { }

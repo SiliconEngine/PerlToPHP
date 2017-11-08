@@ -1,4 +1,10 @@
 <?php
+/**
+ * PPI statement nodes.
+ *
+ * @author          Tim Behrendsen <tim@siliconengine.com>
+ * @created         2016-10-14
+ */
 class PpiStatement extends PpiNode
 {
     public function anaContext()

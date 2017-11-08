@@ -1,8 +1,10 @@
 <?php
 /**
- * Base call for all PPI classes.
+ * Base class for all PPI classes.
+ *
+ * @author          Tim Behrendsen <tim@siliconengine.com>
+ * @created         2016-10-14
  */
-
 class PpiElement
 {
     public $id;

@@ -1,5 +1,10 @@
 <?php
-
+/**
+ * Perl-to-PHP main converter class.
+ *
+ * @author          Tim Behrendsen <tim@siliconengine.com>
+ * @created         2016-10-14
+ */
 require_once('PpiElement.php');
 require_once('PpiNode.php');
 require_once('PpiDocument.php');
@@ -172,7 +177,7 @@ class Converter
         }
         pclose($pipe);
         if (! $this->quietOpt) {
-            print "$n lines read\n";
+            error_log("$n lines read");
         }
     }
 
@@ -375,12 +380,12 @@ class Converter
         $ppiFn = null)
     {
         if (! $this->quietOpt) {
-            print "Phase 1: Do whitespace consolidation\n";
+            error_log("Phase 1: Do whitespace consolidation");
         }
         $this->consolidateWhitespace();
 
         if (! $this->quietOpt) {
-            print "Phase 2: Analyze lexical structure\n";
+            error_log("Phase 2: Analyze lexical structure");
         }
         $this->root->analyzeTreeContext();
 
@@ -389,7 +394,7 @@ class Converter
         }
 
         if (! $this->quietOpt) {
-            print "Phase 3: Calling all converters\n";
+            error_log("Phase 3: Calling all converters");
         }
 
         // Step 1: Call all converters
@@ -407,7 +412,7 @@ class Converter
 
         // Recursively generate code
         if (! $this->quietOpt) {
-            print "Phase 4: Writing source\n";
+            error_log("Phase 4: Writing source");
         }
         return "<?php\n" . $this->root->getRecursiveContent();
     }
