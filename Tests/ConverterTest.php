@@ -1,6 +1,4 @@
 <?php
-require_once('AbstractConverterTester.php');
-
 class ConverterTest extends \AbstractConverterTester
 {
     public function setUp()

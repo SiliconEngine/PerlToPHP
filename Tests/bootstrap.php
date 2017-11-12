@@ -1,4 +1,5 @@
 <?php
+require_once('AbstractConverterTester.php');
 
 class Bootstrap
 {
