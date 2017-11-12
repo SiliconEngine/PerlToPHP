@@ -222,8 +222,8 @@ class Converter
         $obj)
     {
         if (! preg_match('/^([ \t]*)(.*)(\n*)(.*)/', $obj->content, $matches)) {
-            print "BAD CONTENT: {$obj->content}\n";
-            exit(1);
+            error_log("WARNING: chgComment BAD CONTENT: {$obj->content}");
+            return;
         }
 
         $spaces = $matches[1];
@@ -231,8 +231,8 @@ class Converter
         $nl = $matches[3];
         $rest = $matches[4];
         if ($rest !== '') {
-            print "ERROR: comment had spaces after newline: '$obj->content'\n";
-            exit(1);
+            error_log("WARNING: comment had spaces after newline: '$obj->content'");
+            return;
         }
 
         // Note might have spaces from prior WS token
@@ -255,8 +255,8 @@ class Converter
         $obj)
     {
         if (! preg_match('/^([ \t]*)(.*)(\n*)(.*)/', $obj->content, $matches)) {
-            print "BAD CONTENT: {$obj->content}\n";
-            exit(1);
+            error_log("WARNING: chgWhitespace BAD CONTENT: {$obj->content}");
+            return;
         }
 
         $spaces = $matches[1];

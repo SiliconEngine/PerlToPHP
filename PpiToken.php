@@ -231,8 +231,8 @@ class PpiTokenArrayIndex extends PpiTokenSymbol
     {
         if (! $this->converted) {
             if (substr($this->content, 0, 2) != '$#') {
-                print "Unknown array index syntax: {$this->content}\n";
-                exit(1);
+                error_log("WARNING: Unknown array index syntax: {$this->content}");
+                return;
             }
 
             $var = '$' . substr($this->content, 2);
@@ -397,9 +397,9 @@ class PpiTokenCast extends PpiToken
                         $this->content = "count({$next->genCode()})";
                         $next->cancel();
                     } else {
-                        print "Unknown cast following type: " .
-                            get_class($next) . "\n";
-                        exit(1);
+                        error_log("WARNING: Unknown cast following type: " .
+                            get_class($next));
+                        break;
                     }
 
                     if ($needMinus) {
@@ -1308,9 +1308,9 @@ class PpiTokenWord extends PpiToken
             if ($this->content == 'unless') {
                 // The condition must be in parenthesis, which helps things.
                 if (! ($this->next instanceof PpiStructureCondition)) {
-                    print "Missing PpiStructureCondition:\n" .
-                        "{$this->next->fmtObj()}\n";
-                    exit(1);
+                    error_log("WARNING: Missing PpiStructureCondition:\n" .
+                        "{$this->next->fmtObj()}");
+                    return;
                 }
 
                 $this->content = 'if';
@@ -1406,9 +1406,9 @@ class PpiTokenWord extends PpiToken
 
         // Next token should be the variable
         if (! ($obj instanceof PpiTokenSymbol)) {
-            print "Foreach invalid variable token: " . get_class($obj) .
-                ", content: '{$obj->content}'\n";
-            exit(1);
+            error_log("WARNING: Foreach invalid variable token: " . get_class($obj) .
+                ", content: '{$obj->content}'");
+            return;
         }
         $var = $obj->genCode();
         $obj->cancel();
@@ -1416,9 +1416,9 @@ class PpiTokenWord extends PpiToken
         // Next is expression in parenthesis
         $obj = $obj->getNextNonWs();
         if (! ($obj instanceof PpiStructureList)) {
-            print "Foreach invalid expression token: " . get_class($obj) .
-                "content: {$obj->content}\n";
-            exit(1);
+            error_log("WARNING: Foreach invalid expression token: " . get_class($obj) .
+                "content: {$obj->content}");
+            return;
         }
         $expr = trim($obj->getRecursiveContent());
 
