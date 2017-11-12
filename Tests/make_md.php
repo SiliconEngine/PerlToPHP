@@ -21,7 +21,6 @@ class wrapper extends ConverterTest
         $php,
         $options = [])
     {
-
         $lines1 = explode("\n", trim($perl, "\n"));
         $lines2 = explode("\n", trim($php, "\n"));
         $num = max(count($lines1), count($lines2));
@@ -49,7 +48,7 @@ class wrapper extends ConverterTest
 
         $s1 = implode('<br>', $lines1);
         $s2 = implode('<br>', $lines2);
-        $this->docText = "| $s1 | $s2 |";
+        $this->docText .= "| $s1 | $s2 |";
     }
 }
 
@@ -57,8 +56,10 @@ print "| PERL | PHP |\n";
 print "| ---- | --- |\n";
 $methods = get_class_methods('wrapper');
 $wrap = new wrapper;
+
 foreach ($methods as $method) {
     if (substr($method, 0, 4) == 'test') {
+        $wrap->docText = '';
         $wrap->$method();
         print $wrap->docText . "\n";
     }
